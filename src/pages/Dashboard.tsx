@@ -4,13 +4,19 @@ import { PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
+import { useTags } from "@/hooks/useTags";
 import StatusTag from "@/components/StatusTag";
 import ProjectTag from "@/components/ProjectTag";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
+import PublishingHeatmap from "@/components/dashboard/PublishingHeatmap";
+import CadenceCard from "@/components/dashboard/CadenceCard";
+import DistributionCard from "@/components/dashboard/DistributionCard";
+import GapStrip from "@/components/dashboard/GapStrip";
 
 export default function Dashboard() {
   const { items, refresh } = useContent();
-  const { projects } = useProjects();
+  const { projects, refresh: refreshProjects } = useProjects();
+  const { tags, refresh: refreshTags } = useTags();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -39,9 +45,17 @@ export default function Dashboard() {
 
   const recent = items.slice(0, 6);
 
+  const projectsWithCadence = projects.filter((p) => p.cadenceTarget);
+
   const open = (id: string | null) => {
     setEditId(id);
     setEditorOpen(true);
+  };
+
+  const handleChanged = () => {
+    refresh();
+    refreshTags();
+    refreshProjects();
   };
 
   const renderItem = (i: typeof items[number], showOverdue = false) => (
@@ -82,6 +96,31 @@ export default function Dashboard() {
         </Col>
         <Col xs={24} sm={8} md={5}>
           <Card><Statistic title="Published" value={stats.Published} /></Card>
+        </Col>
+      </Row>
+
+      <GapStrip items={items} projects={projects} />
+
+      <Row gutter={[16, 16]} className="app-section">
+        {projectsWithCadence.length > 0 && (
+          <Col xs={24} md={projectsWithCadence.length > 1 ? 16 : 12}>
+            <Row gutter={[12, 12]}>
+              {projectsWithCadence.map((p) => (
+                <Col xs={24} sm={12} key={p.id}>
+                  <CadenceCard project={p} items={items} />
+                </Col>
+              ))}
+            </Row>
+          </Col>
+        )}
+        <Col xs={24} md={projectsWithCadence.length > 1 ? 8 : projectsWithCadence.length === 1 ? 12 : 24}>
+          <DistributionCard items={items} />
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} className="app-section">
+        <Col xs={24}>
+          <PublishingHeatmap items={items} />
         </Col>
       </Row>
 
@@ -139,8 +178,9 @@ export default function Dashboard() {
         open={editorOpen}
         itemId={editId}
         projects={projects}
+        tags={tags}
         onClose={() => setEditorOpen(false)}
-        onChanged={refresh}
+        onChanged={handleChanged}
       />
 
       {!items.length && (
