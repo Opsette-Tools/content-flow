@@ -13,20 +13,24 @@ import {
 } from "antd";
 import { CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { contentRepo } from "@/db";
+import { contentRepo, tagsRepo } from "@/db";
 import {
   CONTENT_STATUSES,
-  CONTENT_TYPES,
   DEFAULT_CHECKLIST,
+  FUNNEL_STAGES,
+  MEDIUMS,
   type ContentItem,
   type Project,
+  type Tag,
 } from "@/db/types";
 import ContentChecklist from "./ContentChecklist";
+import MediumIcon from "./MediumIcon";
 
 interface Props {
   open: boolean;
   itemId: string | null;
   projects: Project[];
+  tags?: Tag[];
   defaultProjectId?: string | null;
   defaultDate?: string | null;
   onClose: () => void;
@@ -37,6 +41,7 @@ export default function ContentEditorDrawer({
   open,
   itemId,
   projects,
+  tags = [],
   defaultProjectId,
   defaultDate,
   onClose,
@@ -45,13 +50,22 @@ export default function ContentEditorDrawer({
   const [form] = Form.useForm();
   const [item, setItem] = useState<ContentItem | null>(null);
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
+  const [localTags, setLocalTags] = useState<Tag[]>(tags);
   const debounceRef = useRef<number | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+  useEffect(() => {
+    setLocalTags(tags);
+  }, [tags]);
 
   useEffect(() => {
     let active = true;
     async function load() {
       if (!open) return;
+      // Refresh tags list on open
+      const fresh = await tagsRepo.list();
+      if (active) setLocalTags(fresh);
+
       if (itemId) {
         const it = await contentRepo.get(itemId);
         if (!active || !it) return;
@@ -61,7 +75,9 @@ export default function ContentEditorDrawer({
           title: it.title,
           projectId: it.projectId,
           slugOrRoute: it.slugOrRoute,
-          contentType: it.contentType,
+          medium: it.medium,
+          funnelStage: it.funnelStage,
+          tags: it.tags,
           status: it.status,
           primaryKeyword: it.primaryKeyword,
           secondaryKeywords: it.secondaryKeywords,
@@ -69,7 +85,6 @@ export default function ContentEditorDrawer({
           briefNotes: it.briefNotes,
         });
       } else {
-        // Create a new item immediately so auto-save works
         const created = await contentRepo.create({
           title: "Untitled",
           projectId: defaultProjectId ?? null,
@@ -82,7 +97,9 @@ export default function ContentEditorDrawer({
           title: created.title,
           projectId: created.projectId,
           slugOrRoute: created.slugOrRoute,
-          contentType: created.contentType,
+          medium: created.medium,
+          funnelStage: created.funnelStage,
+          tags: created.tags,
           status: created.status,
           primaryKeyword: created.primaryKeyword,
           secondaryKeywords: created.secondaryKeywords,
@@ -119,7 +136,9 @@ export default function ContentEditorDrawer({
       title: (all.title as string) || "Untitled",
       projectId: (all.projectId as string) ?? null,
       slugOrRoute: (all.slugOrRoute as string) || "",
-      contentType: all.contentType as ContentItem["contentType"],
+      medium: all.medium as ContentItem["medium"],
+      funnelStage: all.funnelStage as ContentItem["funnelStage"],
+      tags: (all.tags as string[]) || [],
       status: all.status as ContentItem["status"],
       primaryKeyword: (all.primaryKeyword as string) || "",
       secondaryKeywords: (all.secondaryKeywords as string[]) || [],
@@ -151,6 +170,32 @@ export default function ContentEditorDrawer({
     onClose();
   };
 
+  // Create tag inline when user types a new value in the multi-select
+  const handleTagsChange = async (next: string[]) => {
+    const known = new Set(localTags.map((t) => t.id));
+    const created: Tag[] = [];
+    const ids: string[] = [];
+    for (const v of next) {
+      if (known.has(v)) {
+        ids.push(v);
+      } else {
+        // v is a new tag name
+        const tag = await tagsRepo.create(v);
+        created.push(tag);
+        ids.push(tag.id);
+      }
+    }
+    if (created.length) {
+      setLocalTags(await tagsRepo.list());
+    }
+    form.setFieldsValue({ tags: ids });
+    if (item) {
+      const updated = await contentRepo.update(item.id, { tags: ids });
+      setItem(updated);
+      onChanged();
+    }
+  };
+
   const checklistDone = Object.values(checklist).filter(Boolean).length;
 
   return (
@@ -173,7 +218,12 @@ export default function ContentEditorDrawer({
         </Space>
       }
     >
-      <Form form={form} layout="vertical" onValuesChange={onValuesChange} initialValues={{ contentType: "Article", status: "Idea", secondaryKeywords: [] }}>
+      <Form
+        form={form}
+        layout="vertical"
+        onValuesChange={onValuesChange}
+        initialValues={{ medium: "Article", funnelStage: "None", status: "Idea", secondaryKeywords: [], tags: [] }}
+      >
         <Form.Item name="title" label="Title" rules={[{ required: true }]}>
           <Input placeholder="e.g. How to plan content" />
         </Form.Item>
@@ -187,8 +237,31 @@ export default function ContentEditorDrawer({
         <Form.Item name="slugOrRoute" label="Slug / Route">
           <Input placeholder="/blog/my-post" />
         </Form.Item>
-        <Form.Item name="contentType" label="Type">
-          <Select options={CONTENT_TYPES.map((t) => ({ label: t, value: t }))} />
+        <Form.Item name="medium" label="Medium">
+          <Select
+            options={MEDIUMS.map((m) => ({
+              value: m,
+              label: (
+                <Space size={6}>
+                  <MediumIcon medium={m} />
+                  <span>{m}</span>
+                </Space>
+              ),
+            }))}
+          />
+        </Form.Item>
+        <Form.Item name="funnelStage" label="Funnel stage">
+          <Select options={FUNNEL_STAGES.map((s) => ({ label: s, value: s }))} />
+        </Form.Item>
+        <Form.Item name="tags" label="Tags">
+          <Select
+            mode="tags"
+            placeholder="Add tags (type to create)"
+            tokenSeparators={[","]}
+            onChange={handleTagsChange}
+            options={localTags.map((t) => ({ label: t.name, value: t.id }))}
+            optionFilterProp="label"
+          />
         </Form.Item>
         <Form.Item name="status" label="Status">
           <Select options={CONTENT_STATUSES.map((s) => ({ label: s, value: s }))} />
