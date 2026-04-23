@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Button, Card, Popconfirm, Space, Switch, Typography, message } from "antd";
 import { useSettings } from "@/hooks/useSettings";
-import { contentRepo, exportAllJson, importAllJson, projectsRepo, resetAll } from "@/db";
+import { contentRepo, exportAllJson, importAllJson, projectsRepo, resetAll, tagsRepo } from "@/db";
 import { contentToCsv, downloadFile } from "@/utils/csv";
 
 export default function Settings() {
@@ -14,8 +14,12 @@ export default function Settings() {
   };
 
   const handleExportCsv = async () => {
-    const [items, projects] = await Promise.all([contentRepo.list(), projectsRepo.list()]);
-    const csv = contentToCsv(items, projects);
+    const [items, projects, tags] = await Promise.all([
+      contentRepo.list(),
+      projectsRepo.list(),
+      tagsRepo.list(),
+    ]);
+    const csv = contentToCsv(items, projects, tags);
     downloadFile(`content-${new Date().toISOString().slice(0, 10)}.csv`, csv, "text/csv");
   };
 
