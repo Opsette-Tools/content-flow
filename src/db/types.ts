@@ -17,6 +17,92 @@ export const CONTENT_TYPES: ContentType[] = [
   "Other",
 ];
 
+export type Medium =
+  | "Article"
+  | "Video"
+  | "Short / Reel"
+  | "Podcast"
+  | "Newsletter"
+  | "Email"
+  | "Social Post"
+  | "Landing Page"
+  | "Guide"
+  | "Webinar"
+  | "Other";
+
+export const MEDIUMS: Medium[] = [
+  "Article",
+  "Video",
+  "Short / Reel",
+  "Podcast",
+  "Newsletter",
+  "Email",
+  "Social Post",
+  "Landing Page",
+  "Guide",
+  "Webinar",
+  "Other",
+];
+
+// Lucide icon name per medium (kebab-case names from lucide-react)
+export const MEDIUM_ICONS: Record<Medium, string> = {
+  Article: "file-text",
+  Video: "video",
+  "Short / Reel": "clapperboard",
+  Podcast: "mic",
+  Newsletter: "newspaper",
+  Email: "mail",
+  "Social Post": "message-square",
+  "Landing Page": "layout",
+  Guide: "book-open",
+  Webinar: "presentation",
+  Other: "file",
+};
+
+export type FunnelStage =
+  | "None"
+  | "Awareness"
+  | "Consideration"
+  | "Decision"
+  | "Retention";
+
+export const FUNNEL_STAGES: FunnelStage[] = [
+  "None",
+  "Awareness",
+  "Consideration",
+  "Decision",
+  "Retention",
+];
+
+export const FUNNEL_COLORS: Record<FunnelStage, string> = {
+  None: "default",
+  Awareness: "cyan",
+  Consideration: "geekblue",
+  Decision: "magenta",
+  Retention: "green",
+};
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: number;
+}
+
+export const TAG_COLORS = [
+  "magenta",
+  "red",
+  "volcano",
+  "orange",
+  "gold",
+  "lime",
+  "green",
+  "cyan",
+  "blue",
+  "geekblue",
+  "purple",
+];
+
 export type ContentStatus =
   | "Idea"
   | "Planned"
@@ -71,6 +157,7 @@ export interface Project {
   name: string;
   description?: string;
   color: string;
+  cadenceTarget?: { count: number; period: "week" | "month" } | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -81,6 +168,9 @@ export interface ContentItem {
   title: string;
   slugOrRoute: string;
   contentType: ContentType;
+  medium: Medium;
+  funnelStage: FunnelStage;
+  tags: string[]; // tag ids
   primaryKeyword: string;
   secondaryKeywords: string[];
   publishDate: string | null; // ISO date (YYYY-MM-DD) or null

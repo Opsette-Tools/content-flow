@@ -1,4 +1,4 @@
-import type { ContentItem, Project } from "@/db/types";
+import type { ContentItem, Project, Tag } from "@/db/types";
 
 function escape(v: unknown): string {
   if (v == null) return "";
@@ -7,12 +7,19 @@ function escape(v: unknown): string {
   return s;
 }
 
-export function contentToCsv(items: ContentItem[], projects: Project[]): string {
+export function contentToCsv(
+  items: ContentItem[],
+  projects: Project[],
+  tags: Tag[] = [],
+): string {
   const projMap = new Map(projects.map((p) => [p.id, p.name]));
+  const tagMap = new Map(tags.map((t) => [t.id, t.name]));
   const headers = [
     "Title",
     "Project",
-    "Type",
+    "Medium",
+    "Funnel Stage",
+    "Tags",
     "Status",
     "Primary Keyword",
     "Secondary Keywords",
@@ -24,7 +31,9 @@ export function contentToCsv(items: ContentItem[], projects: Project[]): string 
     [
       i.title,
       i.projectId ? projMap.get(i.projectId) ?? "" : "",
-      i.contentType,
+      i.medium,
+      i.funnelStage,
+      (i.tags ?? []).map((id) => tagMap.get(id) ?? "").filter(Boolean).join("; "),
       i.status,
       i.primaryKeyword,
       i.secondaryKeywords.join("; "),

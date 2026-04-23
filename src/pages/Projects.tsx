@@ -1,36 +1,75 @@
 import { useState } from "react";
-import { Button, Card, Col, Empty, Form, Input, Modal, Popconfirm, Row, Space, Tag, Typography, message } from "antd";
+import {
+  Button,
+  Card,
+  Col,
+  Empty,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Popconfirm,
+  Row,
+  Select,
+  Space,
+  Tag,
+  Typography,
+  message,
+} from "antd";
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { projectsRepo } from "@/db";
 import { PROJECT_COLORS, type Project } from "@/db/types";
 import { useProjects } from "@/hooks/useProjects";
 
+interface FormValues {
+  name: string;
+  description?: string;
+  color: string;
+  cadenceCount?: number | null;
+  cadencePeriod?: "week" | "month";
+}
+
 export default function Projects() {
   const { projects, refresh } = useProjects();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<FormValues>();
 
   const openNew = () => {
     setEditing(null);
     form.resetFields();
-    form.setFieldsValue({ color: PROJECT_COLORS[0] });
+    form.setFieldsValue({ color: PROJECT_COLORS[0], cadencePeriod: "week" });
     setOpen(true);
   };
 
   const openEdit = (p: Project) => {
     setEditing(p);
-    form.setFieldsValue(p);
+    form.setFieldsValue({
+      name: p.name,
+      description: p.description,
+      color: p.color,
+      cadenceCount: p.cadenceTarget?.count ?? null,
+      cadencePeriod: p.cadenceTarget?.period ?? "week",
+    });
     setOpen(true);
   };
 
   const submit = async () => {
     const values = await form.validateFields();
+    const payload = {
+      name: values.name,
+      description: values.description,
+      color: values.color,
+      cadenceTarget:
+        values.cadenceCount && values.cadenceCount > 0
+          ? { count: values.cadenceCount, period: values.cadencePeriod ?? "week" }
+          : null,
+    };
     if (editing) {
-      await projectsRepo.update(editing.id, values);
+      await projectsRepo.update(editing.id, payload);
       message.success("Project updated");
     } else {
-      await projectsRepo.create(values);
+      await projectsRepo.create(payload);
       message.success("Project created");
     }
     setOpen(false);
@@ -66,9 +105,14 @@ export default function Projects() {
                   </Space>
                 }
               >
-                <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                <Typography.Paragraph type="secondary" style={{ marginBottom: 4 }}>
                   {p.description || "No description"}
                 </Typography.Paragraph>
+                {p.cadenceTarget && (
+                  <Tag color="blue">
+                    Goal: {p.cadenceTarget.count} / {p.cadenceTarget.period}
+                  </Tag>
+                )}
               </Card>
             </Col>
           ))}
@@ -94,6 +138,23 @@ export default function Projects() {
           </Form.Item>
           <Form.Item name="color" label="Color tag" rules={[{ required: true }]}>
             <ColorPicker />
+          </Form.Item>
+          <Form.Item label="Publishing cadence (optional)" tooltip="Set a target — the dashboard will track your pace.">
+            <Space>
+              <Form.Item name="cadenceCount" noStyle>
+                <InputNumber min={0} max={99} placeholder="0" style={{ width: 80 }} />
+              </Form.Item>
+              <span>per</span>
+              <Form.Item name="cadencePeriod" noStyle>
+                <Select
+                  style={{ width: 110 }}
+                  options={[
+                    { label: "week", value: "week" },
+                    { label: "month", value: "month" },
+                  ]}
+                />
+              </Form.Item>
+            </Space>
           </Form.Item>
         </Form>
       </Modal>

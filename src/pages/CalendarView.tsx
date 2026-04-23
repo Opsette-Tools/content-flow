@@ -5,10 +5,12 @@ import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
 import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
+import { useTags } from "@/hooks/useTags";
 import { STATUS_COLORS, type ContentItem } from "@/db/types";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import StatusTag from "@/components/StatusTag";
 import ProjectTag from "@/components/ProjectTag";
+import MediumIcon from "@/components/MediumIcon";
 
 const { useBreakpoint } = Grid;
 
@@ -31,6 +33,7 @@ const badgeStatusFor = (color: string) => {
 export default function CalendarView() {
   const { items, refresh } = useContent();
   const { projects } = useProjects();
+  const { tags } = useTags();
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
@@ -118,11 +121,16 @@ export default function CalendarView() {
                 actions={[<StatusTag key="s" status={i.status} />]}
               >
                 <List.Item.Meta
-                  title={i.title}
+                  title={
+                    <Space size={6}>
+                      <MediumIcon medium={i.medium} />
+                      <span>{i.title}</span>
+                    </Space>
+                  }
                   description={
                     <Space size={6} wrap>
                       <ProjectTag project={i.projectId ? projMap.get(i.projectId) : null} />
-                      <Tag>{i.contentType}</Tag>
+                      <Tag>{i.medium}</Tag>
                     </Space>
                   }
                 />
@@ -138,6 +146,7 @@ export default function CalendarView() {
         open={editorOpen}
         itemId={editId}
         projects={projects}
+        tags={tags}
         defaultDate={defaultDate}
         onClose={() => setEditorOpen(false)}
         onChanged={refresh}
