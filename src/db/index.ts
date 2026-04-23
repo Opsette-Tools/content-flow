@@ -204,6 +204,55 @@ export const settingsRepo = {
   },
 };
 
+export const tagsRepo = {
+  async list(): Promise<Tag[]> {
+    const db = await getDb();
+    const all = (await db.getAll("tags")) as Tag[];
+    return all.sort((a, b) => a.name.localeCompare(b.name));
+  },
+  async create(name: string, color?: string): Promise<Tag> {
+    const db = await getDb();
+    const trimmed = name.trim();
+    // Reuse if already exists by name (case-insensitive)
+    const existing = ((await db.getAll("tags")) as Tag[]).find(
+      (t) => t.name.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (existing) return existing;
+    const tag: Tag = {
+      id: uid(),
+      name: trimmed,
+      color: color ?? TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)],
+      createdAt: now(),
+    };
+    await db.put("tags", tag);
+    return tag;
+  },
+  async update(id: string, patch: Partial<Tag>): Promise<Tag> {
+    const db = await getDb();
+    const existing = (await db.get("tags", id)) as Tag;
+    const updated = { ...existing, ...patch, id };
+    await db.put("tags", updated);
+    return updated;
+  },
+  async remove(id: string): Promise<void> {
+    const db = await getDb();
+    await db.delete("tags", id);
+    // Remove tag id from any content items
+    const items = (await db.getAll("content")) as ContentItem[];
+    const tx = db.transaction("content", "readwrite");
+    for (const it of items) {
+      if (it.tags?.includes(id)) {
+        await tx.store.put({
+          ...it,
+          tags: it.tags.filter((t) => t !== id),
+          updatedAt: now(),
+        });
+      }
+    }
+    await tx.done;
+  },
+};
+
 export async function seedIfEmpty() {
   const settings = await settingsRepo.get();
   if (settings.seeded) return;
