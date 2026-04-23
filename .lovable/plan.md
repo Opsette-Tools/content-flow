@@ -1,129 +1,99 @@
 
-# Content Planner — Lightweight Local-First Calendar
+# Categorization Overhaul + Dashboard Cadence & Heatmap
 
-A clean, mobile-first content planning app built with Ant Design, persisted locally via IndexedDB, deployable to GitHub Pages, and PWA-ready (without breaking Lovable preview).
+Two-part upgrade: smarter content categorization (medium, funnel stage, tags) and a dashboard that shows publishing rhythm.
 
-## What you'll get
+## Part 1 — Categorization
 
-A solo-creator content planner with **Projects**, **Content Items**, a **checklist guardrail system**, and three working views (Dashboard, List, Calendar) plus a detail editor — all running entirely in the browser.
+### New fields on Content Items
 
-## Core entities
+- **Medium** (replaces the format-ish part of "Type"): `Article`, `Video`, `Short / Reel`, `Podcast`, `Newsletter`, `Email`, `Social Post`, `Landing Page`, `Guide`, `Webinar`, `Other`
+- **Funnel stage**: `Awareness` (TOFU), `Consideration` (MOFU), `Decision` (BOFU), `Retention`, `None`
+- **Tags**: free-form multi-select, color-coded, reusable across items (e.g. "Q1 launch", "case study", "evergreen")
 
-**Projects** — name, description, color tag, timestamps.
+The existing **Type** field is renamed to **Medium** and its options expanded — old values (`Article`, `Guide`, `Landing Page`, `Update`, `Resource`, `FAQ`, `Other`) map cleanly into the new list. A small one-time data migration in the IndexedDB upgrade handler will:
+- copy `contentType` → `medium`
+- map `Update` → `Article`, `Resource` → `Guide`, `FAQ` → `Article`
+- default `funnelStage` to `None` and `tags` to `[]`
 
-**Content Items** — title, project, slug/route, type (Article/Guide/Landing Page/Update/Resource/FAQ/Other), primary keyword, secondary keywords, publish date, status (Idea/Planned/Drafting/Ready/Published/Archived), brief notes, checklist, timestamps.
+### Where these surface
 
-**Checklist (fixed for V1)** — Title finalized · Route/slug set · Primary keyword chosen · Secondary keywords added · Outline/brief ready · Internal links planned · Metadata considered · Ready to draft · Ready to publish.
+**Editor drawer** — three new fields: Medium select (with small icon per medium), Funnel stage select, Tags multi-select with create-on-type and color preview.
 
-## Views
+**Content List**
+- New columns: Medium (with icon), Funnel, Tags (chip cluster, truncated)
+- New filters: Medium, Funnel, Tag (multi-select)
+- Mobile cards show medium icon + funnel chip
+- Search also matches tag names
 
-### 1. Dashboard
-- Quick stats row: Total · Planned · Drafting · Ready · Published (Ant `Card` + `Statistic`, stacks on mobile)
-- **Upcoming this week** list
-- **Overdue** list (planned items with past publish dates) with red badges
-- **Unscheduled ideas** section
-- **Recent items** list
-- Floating "Quick add" button (opens content modal)
+**Calendar** — Day drawer items show medium icon next to title; cell badges colored by status (unchanged).
 
-### 2. Content List
-- Ant `Table` on desktop → switches to `List` of cards on mobile
-- Columns: Title, Project (color tag), Type, Primary Keyword, Publish Date, Status (colored tag)
-- Filters in a collapsible bar: Project · Status · Type · Date range
-- Search across title, keyword, slug
-- Row actions: Edit · Duplicate · Delete · Quick status change (Dropdown)
-- Sort by publish date
+**Dashboard** — New "Distribution" mini-card (see Part 2).
 
-### 3. Calendar
-- Ant `Calendar` month view
-- Cells show badges per content item (color = status)
-- Tap a date → Drawer listing items for that day + "Add for this date" button
-- Tap an item → opens editor drawer
-- Mobile: simplified cell rendering (count badge instead of titles)
+### Tag management
 
-### 4. Content Detail / Editor
-- Opens as a `Drawer` (right side desktop, bottom sheet mobile)
-- Ant `Form` with all fields, `Select` for project/type/status, `DatePicker` for publish date, `Select mode="tags"` for secondary keywords, `Input.TextArea` for brief
-- Checklist as `Checkbox.Group` with progress indicator
-- Auto-save on field blur/change (debounced)
-- Actions: Save · Duplicate · Delete
+Tags live as their own lightweight store (`tags` object store: `{ id, name, color, createdAt }`). Created on the fly from the editor; no separate management page in this pass — just rename/delete from a tiny popover in the tag chip on the Content List filter (out of scope if it bloats; can defer).
 
-### 5. Projects management
-- Simple page to create/edit/delete projects, pick a color tag
+## Part 2 — Dashboard cadence & heatmap
 
-## Layout & navigation
+### Cadence goals (per project)
 
-- Ant `Layout` with collapsible `Sider` (drawer on mobile via hamburger)
-- `Menu` items: Dashboard · Content · Calendar · Projects · Settings
-- Header: app title, dark mode toggle, project filter (global)
-- Mobile-first: sider becomes a `Drawer`, toolbars wrap, tables collapse to cards
+- New field on **Project**: `cadenceTarget` — `{ count: number, period: "week" | "month" }` (optional)
+- Set from the Projects page (new field in the project create/edit modal)
+- Dashboard shows a **Cadence card** per project with a target: progress bar of published-this-period vs. target, plus a "behind / on track / ahead" status
 
-## Theming
+### Publishing heatmap
 
-- Ant Design `ConfigProvider` with a centralized `theme` token file
-- Light + dark mode via `theme.darkAlgorithm`, toggle persisted in IndexedDB
-- Minimal `index.css` — only resets, scrollbar polish, and a few layout helpers
-- No Tailwind utility usage in app components
+- New full-width Dashboard card: **"Publishing activity"**
+- GitHub-style grid: last ~16 weeks × 7 days, each cell shaded by number of items with `publishDate` on that day (counts both Published and scheduled)
+- Cells colored by intensity using Ant token (`colorPrimary` with 5 opacity steps)
+- Hover/tap a cell → tooltip with date + count + titles
+- Tap → opens Calendar view focused on that day (out of scope for this pass; tooltip only)
 
-## Data layer
+### Distribution mini-card
 
-- `src/db/` module wrapping IndexedDB (via `idb` library) with typed repositories: `projectsRepo`, `contentRepo`, `settingsRepo`
-- Clean async API: `list`, `get`, `create`, `update`, `delete`, `duplicate`
-- Seed sample projects + a couple of content items on first run for a useful empty state
-- Settings store for theme preference and global project filter
+- Small card next to stats: **"What you're making"**
+- Stacked horizontal bar showing share of items by Medium (top 5) — purely visual, no chart library, just flexed divs colored by token
 
-## Settings page
+### Gap detector strip
 
-- Theme toggle
-- Export all data → JSON download
-- Import from JSON (with confirm)
-- Export content list → CSV
-- Reset all data (confirm modal)
+- Below stats row: a thin alert strip that appears only when applicable
+  - "No content scheduled for the next 7 days" — if true
+  - "Project X hasn't published in 30+ days" — per project with cadence target
+- Dismissible per session (not persisted)
 
-## PWA setup (preview-safe)
+## Layout (Dashboard, top → bottom)
 
-- `vite-plugin-pwa` with `devOptions.enabled: false`
-- Manifest with name, icons, `display: standalone`, theme color
-- Registration guard in `main.tsx`: skip and unregister any existing SW when running inside an iframe or on Lovable preview hosts (`id-preview--*`, `lovableproject.com`)
-- `navigateFallbackDenylist` for `/~oauth` and similar
-- Note: install/offline only works in the published GitHub Pages build, not in the Lovable editor
-
-## GitHub Pages deployment
-
-- `.github/workflows/deploy.yml` — builds on push to `main`, deploys `dist/` via official `actions/deploy-pages`
-- `vite.config.ts` reads `VITE_BASE` env (default `/`) so GitHub Pages subpath works without breaking local dev / Lovable preview
-- React Router uses `basename` from the same env value
-- Includes `public/404.html` SPA fallback for GitHub Pages deep links
-
-## Project structure
-
-```
-src/
-  db/                  IndexedDB layer + repos + types
-  theme/               Ant token config + dark mode hook
-  layout/              AppLayout, Sider, Header
-  pages/
-    Dashboard.tsx
-    ContentList.tsx
-    CalendarView.tsx
-    Projects.tsx
-    Settings.tsx
-  components/
-    ContentEditorDrawer.tsx
-    ContentChecklist.tsx
-    StatusTag.tsx
-    ProjectTag.tsx
-    QuickAddButton.tsx
-    Filters.tsx
-  hooks/               useContent, useProjects, useSettings
-  utils/               date, csv, json import/export
+```text
+[ Stats row: Total · Planned · Drafting · Ready · Published ]
+[ Gap detector strip (conditional) ]
+[ Cadence cards (1 per project with a target) | Distribution mini-card ]
+[ Publishing activity heatmap (full width) ]
+[ Upcoming this week | Overdue ]
+[ Unscheduled ideas | Recently updated ]
 ```
 
-## Explicitly excluded
-Auth, collaboration, comments, AI, SEO/GSC/CMS integrations, notifications, social scheduling, Kanban as primary UI, backend of any kind.
+Mobile: everything stacks; heatmap horizontally scrolls with sticky day labels.
 
-## Out of scope for V1 (can add later)
-- Editable global checklist labels
-- Drag-and-drop on calendar
-- Per-item attachments
+## Technical notes
 
-Ready to build when you approve.
+- **DB version bump**: `DB_VERSION` 1 → 2. Upgrade handler creates `tags` store, runs migration on existing content rows (add `medium`, `funnelStage`, `tags`), keeps `contentType` as deprecated mirror for one version for safety.
+- **Types** (`src/db/types.ts`): add `Medium`, `MEDIUMS`, `MEDIUM_ICONS` (lucide-react icon name map), `FunnelStage`, `FUNNEL_STAGES`, `Tag` interface; extend `ContentItem` with `medium`, `funnelStage`, `tags: string[]` (tag ids); extend `Project` with optional `cadenceTarget`.
+- **Repos**: add `tagsRepo` (list/create/update/remove with usage cleanup); extend `projectsRepo` create/update to accept `cadenceTarget`.
+- **New components**:
+  - `src/components/MediumIcon.tsx` — maps medium → lucide icon
+  - `src/components/TagChips.tsx` — render + multi-select chips
+  - `src/components/dashboard/CadenceCard.tsx`
+  - `src/components/dashboard/PublishingHeatmap.tsx`
+  - `src/components/dashboard/DistributionCard.tsx`
+  - `src/components/dashboard/GapStrip.tsx`
+- **CSV export**: extend `contentToCsv` to include medium, funnel, tag names.
+- **JSON export/import**: include `tags` store; importer tolerates missing fields (defaults applied).
+- **Settings**: no UI changes needed; migration runs automatically on first load after upgrade.
+
+## Out of scope (saved for later sessions)
+- Per-medium checklist templates
+- Recurring items / series
+- Cmd+K command palette
+- Drag-to-reschedule on calendar
+- Tag management page
