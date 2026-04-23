@@ -84,7 +84,7 @@ export default function Settings() {
 
       <Card title="About" size="small">
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          Content Planner stores everything locally in your browser via IndexedDB. No accounts, no servers.
+          Content Flow stores everything locally in your browser via IndexedDB. No accounts, no servers.
           Export your data regularly to keep a backup.
         </Typography.Paragraph>
       </Card>

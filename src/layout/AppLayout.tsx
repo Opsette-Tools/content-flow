@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Layout, Menu, Button, Drawer, Space, Switch, Typography, Grid } from "antd";
+import { Layout, Menu, Drawer, Typography, Grid, Space } from "antd";
 import {
   DashboardOutlined,
   UnorderedListOutlined,
@@ -7,10 +7,6 @@ import {
   AppstoreOutlined,
   InboxOutlined,
   SettingOutlined,
-  MenuOutlined,
-  BulbOutlined,
-  BulbFilled,
-  ThunderboltOutlined,
 } from "@ant-design/icons";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSettings } from "@/hooks/useSettings";
@@ -19,8 +15,12 @@ import { useAppCommands } from "@/app/AppCommands";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import MediumIcon from "@/components/MediumIcon";
 import ShortcutsHelpModal from "@/components/ShortcutsHelpModal";
+import AppHeader from "@/components/AppHeader";
+import AppBreadcrumb from "@/components/AppBreadcrumb";
+import AboutModal from "@/components/AboutModal";
+import PrivacyModal from "@/components/PrivacyModal";
 
-const { Sider, Header, Content } = Layout;
+const { Sider, Content, Footer } = Layout;
 const { useBreakpoint } = Grid;
 
 const items = [
@@ -41,6 +41,8 @@ export default function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -67,6 +69,7 @@ export default function AppLayout() {
   const menu = (
     <Menu
       mode="inline"
+      theme={dark ? "dark" : "light"}
       selectedKeys={[location.pathname]}
       items={items.map((i) => ({ ...i, label: <Link to={i.key}>{i.label}</Link> }))}
       style={{ borderInlineEnd: "none" }}
@@ -123,6 +126,33 @@ export default function AppLayout() {
     </div>
   ) : null;
 
+  const siderHeader = (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: collapsed ? "center" : "flex-start",
+        gap: 10,
+        padding: collapsed ? "16px 0" : "16px",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+      }}
+    >
+      <img
+        src={`${import.meta.env.BASE_URL}favicon.svg`}
+        alt=""
+        width={20}
+        height={20}
+        style={{ display: "block", flexShrink: 0 }}
+      />
+      {!collapsed && (
+        <Typography.Text strong style={{ fontSize: 14 }}>
+          Content Flow
+        </Typography.Text>
+      )}
+    </div>
+  );
+
   const sidebarBody = (
     <>
       {menu}
@@ -139,46 +169,79 @@ export default function AppLayout() {
           onCollapse={setCollapsed}
           width={220}
           breakpoint="lg"
+          theme={dark ? "dark" : "light"}
         >
-          <div style={{ padding: 16, fontWeight: 600, fontSize: 16, whiteSpace: "nowrap", overflow: "hidden" }}>
-            {collapsed ? "CP" : "Content Planner"}
-          </div>
+          {siderHeader}
           {sidebarBody}
         </Sider>
       )}
       <Layout>
-        <Header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px" }}>
-          <Space>
-            {isMobile && (
-              <Button type="text" icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)} />
-            )}
-            <Typography.Text strong>
-              {items.find((i) => i.key === location.pathname)?.label ?? "Content Planner"}
-            </Typography.Text>
-          </Space>
-          <Space>
-            <Button
-              type="text"
-              icon={<ThunderboltOutlined />}
-              onClick={() => openPalette("navigation")}
-              title="Open command palette (Ctrl/Cmd+K)"
-            >
-              {!isMobile && (
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  Ctrl K
-                </Typography.Text>
-              )}
-            </Button>
-            <Switch
-              checked={dark}
-              checkedChildren={<BulbFilled />}
-              unCheckedChildren={<BulbOutlined />}
-              onChange={(v) => update({ theme: v ? "dark" : "light" })}
-            />
-          </Space>
-        </Header>
+        <AppHeader
+          isDark={dark}
+          onToggleDark={(v) => update({ theme: v ? "dark" : "light" })}
+          onOpenPalette={() => openPalette("navigation")}
+          onOpenMobileDrawer={() => setDrawerOpen(true)}
+          isMobile={isMobile}
+        />
         <Content>
+          <div
+            style={{
+              padding: isMobile ? "8px 16px 0" : "12px 24px 0",
+            }}
+          >
+            <AppBreadcrumb />
+          </div>
           <Outlet />
+          <Footer
+            className="no-print"
+            style={{
+              textAlign: "center",
+              background: "transparent",
+              padding: "16px 20px",
+              fontSize: 13,
+              color: dark ? "#64748B" : "#94A3B8",
+            }}
+          >
+            <Space split={<span style={{ color: dark ? "#475569" : "#CBD5E1" }}>·</span>}>
+              <button
+                onClick={() => setAboutOpen(true)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "inherit",
+                  fontSize: "inherit",
+                  padding: 0,
+                }}
+              >
+                About
+              </button>
+              <button
+                onClick={() => setPrivacyOpen(true)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "inherit",
+                  fontSize: "inherit",
+                  padding: 0,
+                }}
+              >
+                Privacy
+              </button>
+              <span>
+                By{" "}
+                <a
+                  href="https://opsette.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "inherit", textDecoration: "underline" }}
+                >
+                  Opsette
+                </a>
+              </span>
+            </Space>
+          </Footer>
         </Content>
       </Layout>
 
@@ -186,7 +249,18 @@ export default function AppLayout() {
         open={drawerOpen}
         placement="left"
         onClose={() => setDrawerOpen(false)}
-        title="Content Planner"
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img
+              src={`${import.meta.env.BASE_URL}favicon.svg`}
+              alt=""
+              width={20}
+              height={20}
+              style={{ display: "block" }}
+            />
+            <span>Content Flow</span>
+          </div>
+        }
         width={260}
         styles={{ body: { padding: 0 } }}
       >
@@ -194,6 +268,8 @@ export default function AppLayout() {
       </Drawer>
 
       <ShortcutsHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <PrivacyModal open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </Layout>
   );
 }

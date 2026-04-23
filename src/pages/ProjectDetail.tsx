@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  Breadcrumb,
   Button,
   Card,
   Col,
@@ -18,7 +17,7 @@ import {
   Typography,
 } from "antd";
 import { EditOutlined, PlusOutlined } from "@ant-design/icons";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
@@ -191,14 +190,6 @@ export default function ProjectDetail() {
 
   return (
     <div className="app-page">
-      <Breadcrumb
-        style={{ marginBottom: 12 }}
-        items={[
-          { title: <Link to="/projects">Projects</Link> },
-          { title: project.name },
-        ]}
-      />
-
       <Card className="app-section">
         <Space style={{ width: "100%", justifyContent: "space-between" }} align="start" wrap>
           <Space direction="vertical" size={4} style={{ flex: 1, minWidth: 200 }}>

@@ -15,7 +15,7 @@ import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 import { AppCommandsProvider } from "@/app/AppCommands";
 
-const basename = (import.meta.env.VITE_BASE as string | undefined)?.replace(/\/$/, "") || "/";
+const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
 
 const App = () => {
   const { settings } = useSettings();

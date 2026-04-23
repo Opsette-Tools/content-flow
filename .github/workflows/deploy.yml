@@ -25,9 +25,6 @@ jobs:
       - name: Install
         run: npm ci || npm install
       - name: Build
-        env:
-          # Set to "/<repo-name>/" if deploying to a project page (e.g. "/content-planner/")
-          VITE_BASE: ${{ vars.VITE_BASE || '/' }}
         run: npm run build
       - name: SPA 404 fallback
         run: cp dist/index.html dist/404.html
