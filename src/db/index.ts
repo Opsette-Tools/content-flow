@@ -1,16 +1,16 @@
 import { openDB, type IDBPDatabase } from "idb";
-import type { AppSettings, ContentItem, Project } from "./types";
-import { DEFAULT_CHECKLIST } from "./types";
+import type { AppSettings, ContentItem, Medium, Project, Tag } from "./types";
+import { DEFAULT_CHECKLIST, TAG_COLORS } from "./types";
 
 const DB_NAME = "content-planner";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
 export function getDb() {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion, _newVersion, tx) {
         if (!db.objectStoreNames.contains("projects")) {
           db.createObjectStore("projects", { keyPath: "id" });
         }
@@ -22,10 +22,50 @@ export function getDb() {
         if (!db.objectStoreNames.contains("settings")) {
           db.createObjectStore("settings", { keyPath: "id" });
         }
+        if (!db.objectStoreNames.contains("tags")) {
+          db.createObjectStore("tags", { keyPath: "id" });
+        }
+        // Migrate existing content rows from v1 -> v2: add medium, funnelStage, tags
+        if (oldVersion < 2 && db.objectStoreNames.contains("content")) {
+          const store = tx.objectStore("content");
+          store.openCursor().then(async function next(cursor) {
+            if (!cursor) return;
+            const v = cursor.value as Partial<ContentItem> & {
+              contentType?: string;
+            };
+            if (!v.medium) {
+              v.medium = mapTypeToMedium(v.contentType);
+            }
+            if (!v.funnelStage) v.funnelStage = "None";
+            if (!Array.isArray(v.tags)) v.tags = [];
+            await cursor.update(v);
+            const nextCursor = await cursor.continue();
+            return next(nextCursor);
+          });
+        }
       },
     });
   }
   return dbPromise;
+}
+
+function mapTypeToMedium(t: string | undefined): Medium {
+  switch (t) {
+    case "Article":
+      return "Article";
+    case "Guide":
+      return "Guide";
+    case "Landing Page":
+      return "Landing Page";
+    case "Update":
+      return "Article";
+    case "Resource":
+      return "Guide";
+    case "FAQ":
+      return "Article";
+    default:
+      return "Other";
+  }
 }
 
 const uid = () =>
@@ -95,6 +135,9 @@ export const contentRepo = {
       title: data.title,
       slugOrRoute: data.slugOrRoute ?? "",
       contentType: data.contentType ?? "Article",
+      medium: data.medium ?? mapTypeToMedium(data.contentType ?? "Article"),
+      funnelStage: data.funnelStage ?? "None",
+      tags: data.tags ?? [],
       primaryKeyword: data.primaryKeyword ?? "",
       secondaryKeywords: data.secondaryKeywords ?? [],
       publishDate: data.publishDate ?? null,
@@ -220,13 +263,14 @@ export async function seedIfEmpty() {
 }
 
 export async function exportAllJson(): Promise<string> {
-  const [projects, content, settings] = await Promise.all([
+  const [projects, content, settings, tags] = await Promise.all([
     projectsRepo.list(),
     contentRepo.list(),
     settingsRepo.get(),
+    tagsRepo.list(),
   ]);
   return JSON.stringify(
-    { version: 1, exportedAt: new Date().toISOString(), projects, content, settings },
+    { version: 2, exportedAt: new Date().toISOString(), projects, content, settings, tags },
     null,
     2,
   );
@@ -235,20 +279,29 @@ export async function exportAllJson(): Promise<string> {
 export async function importAllJson(json: string) {
   const parsed = JSON.parse(json);
   const db = await getDb();
-  const tx = db.transaction(["projects", "content", "settings"], "readwrite");
+  const tx = db.transaction(["projects", "content", "settings", "tags"], "readwrite");
   await tx.objectStore("projects").clear();
   await tx.objectStore("content").clear();
+  await tx.objectStore("tags").clear();
   for (const p of parsed.projects ?? []) await tx.objectStore("projects").put(p);
-  for (const c of parsed.content ?? []) await tx.objectStore("content").put(c);
+  for (const c of parsed.content ?? []) {
+    // Tolerate missing v2 fields
+    if (!c.medium) c.medium = mapTypeToMedium(c.contentType);
+    if (!c.funnelStage) c.funnelStage = "None";
+    if (!Array.isArray(c.tags)) c.tags = [];
+    await tx.objectStore("content").put(c);
+  }
+  for (const t of parsed.tags ?? []) await tx.objectStore("tags").put(t);
   if (parsed.settings) await tx.objectStore("settings").put(parsed.settings);
   await tx.done;
 }
 
 export async function resetAll() {
   const db = await getDb();
-  const tx = db.transaction(["projects", "content", "settings"], "readwrite");
+  const tx = db.transaction(["projects", "content", "settings", "tags"], "readwrite");
   await tx.objectStore("projects").clear();
   await tx.objectStore("content").clear();
   await tx.objectStore("settings").clear();
+  await tx.objectStore("tags").clear();
   await tx.done;
 }
