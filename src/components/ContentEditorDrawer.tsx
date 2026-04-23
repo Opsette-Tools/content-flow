@@ -13,7 +13,8 @@ import {
 } from "antd";
 import { CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { contentRepo, tagsRepo } from "@/db";
+import { contentRepo, settingsRepo, tagsRepo } from "@/db";
+import { useSettings } from "@/hooks/useSettings";
 import {
   CONTENT_STATUSES,
   DEFAULT_CHECKLIST,
@@ -53,6 +54,7 @@ export default function ContentEditorDrawer({
   const [localTags, setLocalTags] = useState<Tag[]>(tags);
   const debounceRef = useRef<number | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const { refresh: refreshSettings } = useSettings();
 
   useEffect(() => {
     setLocalTags(tags);
@@ -71,6 +73,10 @@ export default function ContentEditorDrawer({
         if (!active || !it) return;
         setItem(it);
         setChecklist(it.checklist);
+        // Track in recently-viewed ring buffer (fire and forget)
+        settingsRepo.pushRecentItem(itemId).then(() => {
+          if (active) refreshSettings();
+        }).catch(() => {});
         form.setFieldsValue({
           title: it.title,
           projectId: it.projectId,

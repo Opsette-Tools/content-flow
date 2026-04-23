@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -38,6 +38,10 @@ import ProjectTag from "@/components/ProjectTag";
 import MediumIcon from "@/components/MediumIcon";
 import TagChips from "@/components/TagChips";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
+import ContentRow from "@/components/ContentRow";
+import { useAppCommands } from "@/app/AppCommands";
+import { filterContent } from "@/utils/filterContent";
+import type { InputRef } from "antd";
 
 const { useBreakpoint } = Grid;
 const { RangePicker } = DatePicker;
@@ -60,32 +64,32 @@ export default function ContentList() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
+  const searchRef = useRef<InputRef>(null);
+  const { focusSearchRef } = useAppCommands();
+  useEffect(() => {
+    focusSearchRef.current = () => searchRef.current?.focus({ cursor: "end" });
+    return () => {
+      focusSearchRef.current = null;
+    };
+  }, [focusSearchRef]);
+
   const projMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
   const tagsMap = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return items.filter((i) => {
-      if (projectFilter && i.projectId !== projectFilter) return false;
-      if (statusFilter && i.status !== statusFilter) return false;
-      if (mediumFilter && i.medium !== mediumFilter) return false;
-      if (funnelFilter && i.funnelStage !== funnelFilter) return false;
-      if (tagFilter.length && !tagFilter.every((t) => i.tags?.includes(t))) return false;
-      if (dateRange && i.publishDate) {
-        const d = dayjs(i.publishDate);
-        if (d.isBefore(dateRange[0], "day") || d.isAfter(dateRange[1], "day")) return false;
-      }
-      if (dateRange && !i.publishDate) return false;
-      if (q) {
-        const tagNames = (i.tags ?? [])
-          .map((id) => tagsMap.get(id)?.name ?? "")
-          .join(" ");
-        const hay = `${i.title} ${i.primaryKeyword} ${i.slugOrRoute} ${tagNames}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [items, search, projectFilter, statusFilter, mediumFilter, funnelFilter, tagFilter, dateRange, tagsMap]);
+  const filtered = useMemo(
+    () =>
+      filterContent(items, {
+        search,
+        projectId: projectFilter,
+        status: statusFilter,
+        medium: mediumFilter,
+        funnelStage: funnelFilter,
+        tagIds: tagFilter,
+        dateRange,
+        tagsMap,
+      }),
+    [items, search, projectFilter, statusFilter, mediumFilter, funnelFilter, tagFilter, dateRange, tagsMap],
+  );
 
   const open = (id: string | null) => {
     setEditId(id);
@@ -140,7 +144,7 @@ export default function ContentList() {
     <Card size="small" className="app-section">
       <Row gutter={[8, 8]}>
         <Col xs={24} md={6}>
-          <Input.Search allowClear placeholder="Search title, keyword, slug, tags" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input.Search ref={searchRef} allowClear placeholder="Search title, keyword, slug, tags" value={search} onChange={(e) => setSearch(e.target.value)} />
         </Col>
         <Col xs={12} md={3}>
           <Select
@@ -264,33 +268,13 @@ export default function ContentList() {
     <List
       dataSource={filtered}
       renderItem={(i) => (
-        <List.Item
+        <ContentRow
           key={i.id}
-          onClick={() => open(i.id)}
-          style={{ cursor: "pointer", background: "var(--ant-color-bg-container, transparent)" }}
-        >
-          <List.Item.Meta
-            title={
-              <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                <Space size={6}>
-                  <MediumIcon medium={i.medium} />
-                  <span>{i.title}</span>
-                </Space>
-                <StatusTag status={i.status} />
-              </Space>
-            }
-            description={
-              <Space size={6} wrap>
-                <ProjectTag project={i.projectId ? projMap.get(i.projectId) : null} />
-                {i.funnelStage && i.funnelStage !== "None" && (
-                  <Tag color={FUNNEL_COLORS[i.funnelStage]}>{i.funnelStage}</Tag>
-                )}
-                <TagChips tagIds={i.tags ?? []} tagsMap={tagsMap} max={2} />
-                {i.publishDate && <Tag>{dayjs(i.publishDate).format("MMM D")}</Tag>}
-              </Space>
-            }
-          />
-        </List.Item>
+          item={i}
+          projectsMap={projMap}
+          tagsMap={tagsMap}
+          onClick={(it) => open(it.id)}
+        />
       )}
     />
   );

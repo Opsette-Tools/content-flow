@@ -1,11 +1,21 @@
 import { useMemo, useState } from "react";
-import { Badge, Button, Calendar, Card, Drawer, Empty, Grid, List, Space, Tag, Typography } from "antd";
+import { Badge, Button, Calendar, Card, Drawer, Empty, Grid, List, Space, Tag, Typography, message } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
+import {
+  DndContext,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
 import { useTags } from "@/hooks/useTags";
+import { contentRepo } from "@/db";
 import { STATUS_COLORS, type ContentItem } from "@/db/types";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import StatusTag from "@/components/StatusTag";
@@ -30,6 +40,37 @@ const badgeStatusFor = (color: string) => {
   }
 };
 
+function DraggableItem({ item }: { item: ContentItem }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id });
+  return (
+    <li
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{
+        opacity: isDragging ? 0.5 : 1,
+        cursor: "grab",
+        touchAction: "none",
+      }}
+    >
+      <Badge status={badgeStatusFor(STATUS_COLORS[item.status]) as never} text={item.title} />
+    </li>
+  );
+}
+
+function DroppableCell({ dateKey, children }: { dateKey: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: dateKey });
+  return (
+    <div
+      ref={setNodeRef}
+      className={isOver ? "calendar-day-droppable calendar-day-droppable--over" : "calendar-day-droppable"}
+      style={{ minHeight: 24 }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function CalendarView() {
   const { items, refresh } = useContent();
   const { projects } = useProjects();
@@ -45,6 +86,10 @@ export default function CalendarView() {
   const [editId, setEditId] = useState<string | null>(null);
   const [defaultDate, setDefaultDate] = useState<string | null>(null);
 
+  // PointerSensor with 5px activation — under 5px of movement stays a click,
+  // preserving the day-drawer open behavior.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
   const itemsByDate = useMemo(() => {
     const map = new Map<string, ContentItem[]>();
     items.forEach((i) => {
@@ -58,19 +103,31 @@ export default function CalendarView() {
   const dateCellRender = (value: Dayjs) => {
     const key = value.format("YYYY-MM-DD");
     const list = itemsByDate.get(key) ?? [];
-    if (!list.length) return null;
+
     if (isMobile) {
+      // Mobile: badge-count only, no drag, no droppable wrapper
+      if (!list.length) return null;
       return <Badge count={list.length} style={{ backgroundColor: "#1677ff" }} />;
     }
+
+    // Desktop: every cell is a droppable, even empty ones
     return (
-      <ul className="calendar-cell-badges">
-        {list.slice(0, 3).map((i) => (
-          <li key={i.id}>
-            <Badge status={badgeStatusFor(STATUS_COLORS[i.status]) as never} text={i.title} />
-          </li>
-        ))}
-        {list.length > 3 && <li><Typography.Text type="secondary" style={{ fontSize: 12 }}>+{list.length - 3} more</Typography.Text></li>}
-      </ul>
+      <DroppableCell dateKey={key}>
+        {list.length > 0 && (
+          <ul className="calendar-cell-badges">
+            {list.slice(0, 3).map((i) => (
+              <DraggableItem key={i.id} item={i} />
+            ))}
+            {list.length > 3 && (
+              <li>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  +{list.length - 3} more
+                </Typography.Text>
+              </li>
+            )}
+          </ul>
+        )}
+      </DroppableCell>
     );
   };
 
@@ -85,17 +142,36 @@ export default function CalendarView() {
     setEditorOpen(true);
   };
 
+  const onDragEnd = async (e: DragEndEvent) => {
+    const itemId = String(e.active.id);
+    const newDate = e.over?.id ? String(e.over.id) : null;
+    if (!newDate) return;
+
+    const item = items.find((i) => i.id === itemId);
+    if (!item || item.publishDate === newDate) return;
+
+    try {
+      await contentRepo.update(itemId, { publishDate: newDate });
+      refresh();
+      message.success(`Rescheduled to ${dayjs(newDate).format("MMM D")}`);
+    } catch {
+      message.error("Failed to reschedule");
+    }
+  };
+
   const dayItems = selectedDate ? itemsByDate.get(selectedDate.format("YYYY-MM-DD")) ?? [] : [];
 
   return (
     <div className="app-page">
-      <Card>
-        <Calendar
-          fullscreen={!isMobile}
-          cellRender={(value, info) => (info.type === "date" ? dateCellRender(value) : null)}
-          onSelect={onSelect}
-        />
-      </Card>
+      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+        <Card>
+          <Calendar
+            fullscreen={!isMobile}
+            cellRender={(value, info) => (info.type === "date" ? dateCellRender(value) : null)}
+            onSelect={onSelect}
+          />
+        </Card>
+      </DndContext>
 
       <Drawer
         open={dayDrawerOpen}

@@ -8,9 +8,12 @@ import AppLayout from "@/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import ContentList from "@/pages/ContentList";
 import CalendarView from "@/pages/CalendarView";
+import Inbox from "@/pages/Inbox";
 import Projects from "@/pages/Projects";
+import ProjectDetail from "@/pages/ProjectDetail";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
+import { AppCommandsProvider } from "@/app/AppCommands";
 
 const basename = (import.meta.env.VITE_BASE as string | undefined)?.replace(/\/$/, "") || "/";
 
@@ -30,17 +33,21 @@ const App = () => {
     <ConfigProvider theme={isDark ? darkTheme : lightTheme}>
       <AntApp>
         <BrowserRouter basename={basename}>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/content" element={<ContentList />} />
-              <Route path="/calendar" element={<CalendarView />} />
-              <Route path="/projects" element={<Projects />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-            <Route path="/index.html" element={<Navigate to="/" replace />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AppCommandsProvider>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/content" element={<ContentList />} />
+                <Route path="/calendar" element={<CalendarView />} />
+                <Route path="/inbox" element={<Inbox />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/projects/:id" element={<ProjectDetail />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+              <Route path="/index.html" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AppCommandsProvider>
         </BrowserRouter>
       </AntApp>
     </ConfigProvider>

@@ -3,7 +3,8 @@ import type { AppSettings, ContentItem, Medium, Project, Tag } from "./types";
 import { DEFAULT_CHECKLIST, TAG_COLORS } from "./types";
 
 const DB_NAME = "content-planner";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
+const RECENT_ITEMS_MAX = 8;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -41,6 +42,15 @@ export function getDb() {
             await cursor.update(v);
             const nextCursor = await cursor.continue();
             return next(nextCursor);
+          });
+        }
+        // v2 -> v3: add recentItemIds to settings
+        if (oldVersion < 3 && db.objectStoreNames.contains("settings")) {
+          const store = tx.objectStore("settings");
+          store.get("app").then(async (existing) => {
+            if (existing && !Array.isArray((existing as AppSettings).recentItemIds)) {
+              await store.put({ ...existing, recentItemIds: [] });
+            }
           });
         }
       },
@@ -160,6 +170,11 @@ export const contentRepo = {
   async remove(id: string): Promise<void> {
     const db = await getDb();
     await db.delete("content", id);
+    // Drop from recent-viewed list if present
+    const s = (await db.get("settings", "app")) as AppSettings | undefined;
+    if (s && Array.isArray(s.recentItemIds) && s.recentItemIds.includes(id)) {
+      await db.put("settings", { ...s, recentItemIds: s.recentItemIds.filter((x) => x !== id) });
+    }
   },
   async duplicate(id: string): Promise<ContentItem | undefined> {
     const db = await getDb();
@@ -183,6 +198,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: "light",
   globalProjectFilter: null,
   seeded: false,
+  recentItemIds: [],
 };
 
 export const settingsRepo = {
@@ -193,6 +209,12 @@ export const settingsRepo = {
       await db.put("settings", DEFAULT_SETTINGS);
       return { ...DEFAULT_SETTINGS };
     }
+    // Self-heal for records predating v3
+    if (!Array.isArray(s.recentItemIds)) {
+      const patched = { ...s, recentItemIds: [] };
+      await db.put("settings", patched);
+      return patched;
+    }
     return s;
   },
   async update(patch: Partial<AppSettings>): Promise<AppSettings> {
@@ -201,6 +223,12 @@ export const settingsRepo = {
     const next = { ...cur, ...patch, id: "app" as const };
     await db.put("settings", next);
     return next;
+  },
+  async pushRecentItem(itemId: string): Promise<AppSettings> {
+    const cur = await settingsRepo.get();
+    const existing = Array.isArray(cur.recentItemIds) ? cur.recentItemIds : [];
+    const next = [itemId, ...existing.filter((id) => id !== itemId)].slice(0, RECENT_ITEMS_MAX);
+    return settingsRepo.update({ recentItemIds: next });
   },
 };
 

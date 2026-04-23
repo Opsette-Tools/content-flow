@@ -75,3 +75,14 @@ body {
   z-index: 100;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
 }
+
+/* Sidebar recent-viewed rows */
+.cf-recent-row:hover {
+  background: rgba(128, 128, 128, 0.12);
+}
+
+/* Calendar drag-and-drop */
+.calendar-day-droppable--over {
+  background: rgba(22, 119, 255, 0.08);
+  border-radius: 4px;
+}

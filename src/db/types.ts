@@ -186,4 +186,5 @@ export interface AppSettings {
   theme: "light" | "dark";
   globalProjectFilter: string | null;
   seeded: boolean;
+  recentItemIds: string[];
 }
