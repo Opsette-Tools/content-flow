@@ -39,6 +39,7 @@ import MediumIcon from "@/components/MediumIcon";
 import TagChips from "@/components/TagChips";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import ContentRow from "@/components/ContentRow";
+import BulkActionsToolbar from "@/components/BulkActionsToolbar";
 import { useAppCommands } from "@/app/AppCommands";
 import { filterContent } from "@/utils/filterContent";
 import { useHeaderActions } from "@/layout/HeaderSlots";
@@ -64,6 +65,9 @@ export default function ContentList() {
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectMode, setSelectMode] = useState(false);
 
   const searchRef = useRef<InputRef>(null);
   const { focusSearchRef } = useAppCommands();
@@ -92,16 +96,51 @@ export default function ContentList() {
     [items, search, projectFilter, statusFilter, mediumFilter, funnelFilter, tagFilter, dateRange, tagsMap],
   );
 
+  // Prune selection to only items still visible after filter changes.
+  useEffect(() => {
+    if (!selectedIds.length) return;
+    const visible = new Set(filtered.map((i) => i.id));
+    const pruned = selectedIds.filter((id) => visible.has(id));
+    if (pruned.length !== selectedIds.length) setSelectedIds(pruned);
+  }, [filtered, selectedIds]);
+
   const open = (id: string | null) => {
     setEditId(id);
     setEditorOpen(true);
   };
 
-  useHeaderActions(
+  const clearSelection = () => {
+    setSelectedIds([]);
+    setSelectMode(false);
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const hasSelection = selectedIds.length > 0;
+
+  const headerNode = hasSelection ? (
+    <BulkActionsToolbar
+      selectedIds={selectedIds}
+      items={items}
+      projects={projects}
+      tags={tags}
+      onClear={clearSelection}
+      onChanged={async () => {
+        await refresh();
+      }}
+      onTagsChanged={async () => {
+        await refreshTags();
+      }}
+    />
+  ) : (
     <Button type="primary" icon={<PlusOutlined />} onClick={() => open(null)}>
       New
-    </Button>,
+    </Button>
   );
+
+  useHeaderActions(headerNode);
 
   const handleQuickStatus = async (id: string, status: ContentStatus) => {
     await contentRepo.update(id, { status });
@@ -149,7 +188,7 @@ export default function ContentList() {
 
   const filtersBar = (
     <Card size="small" className="app-section">
-      <Row gutter={[8, 8]}>
+      <Row gutter={[8, 8]} align="middle">
         <Col xs={24} md={6}>
           <Input.Search ref={searchRef} allowClear placeholder="Search title, keyword, slug, tags" value={search} onChange={(e) => setSearch(e.target.value)} />
         </Col>
@@ -206,11 +245,27 @@ export default function ContentList() {
           />
         </Col>
         <Col xs={24} md={3}>
-          <RangePicker
-            style={{ width: "100%" }}
-            value={dateRange as never}
-            onChange={(v) => setDateRange(v as never)}
-          />
+          <Space style={{ width: "100%", justifyContent: "space-between" }}>
+            <RangePicker
+              style={{ flex: 1 }}
+              value={dateRange as never}
+              onChange={(v) => setDateRange(v as never)}
+            />
+            {isMobile && (
+              <Button
+                type={selectMode ? "primary" : "default"}
+                onClick={() => {
+                  if (selectMode) {
+                    clearSelection();
+                  } else {
+                    setSelectMode(true);
+                  }
+                }}
+              >
+                {selectMode ? "Done" : "Select"}
+              </Button>
+            )}
+          </Space>
         </Col>
       </Row>
     </Card>
@@ -221,6 +276,10 @@ export default function ContentList() {
       rowKey="id"
       dataSource={filtered}
       pagination={{ pageSize: 20, hideOnSinglePage: true }}
+      rowSelection={{
+        selectedRowKeys: selectedIds,
+        onChange: (keys) => setSelectedIds(keys as string[]),
+      }}
       onRow={(r) => ({ onClick: () => open(r.id), style: { cursor: "pointer" } })}
       columns={[
         {
@@ -271,6 +330,8 @@ export default function ContentList() {
     />
   );
 
+  const mobileSelectable = selectMode || selectedIds.length > 0;
+
   const mobileList = (
     <List
       dataSource={filtered}
@@ -281,6 +342,9 @@ export default function ContentList() {
           projectsMap={projMap}
           tagsMap={tagsMap}
           onClick={(it) => open(it.id)}
+          selectable={mobileSelectable}
+          selected={selectedIds.includes(i.id)}
+          onToggleSelect={handleToggleSelect}
         />
       )}
     />

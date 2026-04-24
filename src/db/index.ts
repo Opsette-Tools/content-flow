@@ -176,6 +176,14 @@ export const contentRepo = {
       await db.put("settings", { ...s, recentItemIds: s.recentItemIds.filter((x) => x !== id) });
     }
   },
+  async restore(items: ContentItem[]): Promise<void> {
+    const db = await getDb();
+    const tx = db.transaction("content", "readwrite");
+    for (const item of items) {
+      await tx.store.put(item);
+    }
+    await tx.done;
+  },
   async duplicate(id: string): Promise<ContentItem | undefined> {
     const db = await getDb();
     const existing = (await db.get("content", id)) as ContentItem | undefined;

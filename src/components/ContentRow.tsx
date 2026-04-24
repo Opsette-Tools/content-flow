@@ -1,4 +1,4 @@
-import { List, Space, Tag } from "antd";
+import { Checkbox, List, Space, Tag } from "antd";
 import dayjs from "dayjs";
 import { FUNNEL_COLORS, type ContentItem, type Project, type Tag as TagType } from "@/db/types";
 import MediumIcon from "./MediumIcon";
@@ -12,14 +12,44 @@ interface Props {
   tagsMap: Map<string, TagType>;
   onClick?: (item: ContentItem) => void;
   maxTags?: number;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
-export default function ContentRow({ item, projectsMap, tagsMap, onClick, maxTags = 2 }: Props) {
+export default function ContentRow({
+  item,
+  projectsMap,
+  tagsMap,
+  onClick,
+  maxTags = 2,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+}: Props) {
+  const handleClick = () => {
+    if (selectable) {
+      onToggleSelect?.(item.id);
+    } else {
+      onClick?.(item);
+    }
+  };
+
+  const clickable = selectable || !!onClick;
+
   return (
     <List.Item
-      onClick={() => onClick?.(item)}
-      style={{ cursor: onClick ? "pointer" : "default" }}
+      onClick={handleClick}
+      style={{ cursor: clickable ? "pointer" : "default" }}
     >
+      {selectable && (
+        <Checkbox
+          checked={selected}
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => onToggleSelect?.(item.id)}
+          style={{ marginInlineEnd: 12 }}
+        />
+      )}
       <List.Item.Meta
         title={
           <Space style={{ width: "100%", justifyContent: "space-between" }}>
