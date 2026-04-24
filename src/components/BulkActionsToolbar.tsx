@@ -22,6 +22,8 @@ import {
   PlusCircleOutlined,
 } from "@ant-design/icons";
 import { contentRepo, tagsRepo } from "@/db";
+import { clearDraft } from "@/lib/drafts";
+import { clearUnsynced, markUnsynced } from "@/lib/unsynced";
 import {
   CONTENT_STATUSES,
   type ContentItem,
@@ -90,6 +92,7 @@ export default function BulkActionsToolbar({
             onClick={async () => {
               message.destroy(UNDO_KEY);
               await contentRepo.restore(snaps);
+              snaps.forEach(markUnsynced);
               await onChanged();
               message.success("Undone");
             }}
@@ -103,14 +106,16 @@ export default function BulkActionsToolbar({
 
   const applyStatus = async (status: ContentStatus) => {
     const snaps = snapshot();
-    await Promise.all(selectedIds.map((id) => contentRepo.update(id, { status })));
+    const updated = await Promise.all(selectedIds.map((id) => contentRepo.update(id, { status })));
+    updated.forEach(markUnsynced);
     await onChanged();
     showUndoToast("Changed status for", snaps);
   };
 
   const applyProject = async (projectId: string | null) => {
     const snaps = snapshot();
-    await Promise.all(selectedIds.map((id) => contentRepo.update(id, { projectId })));
+    const updated = await Promise.all(selectedIds.map((id) => contentRepo.update(id, { projectId })));
+    updated.forEach(markUnsynced);
     await onChanged();
     showUndoToast("Reassigned", snaps);
   };
@@ -129,13 +134,14 @@ export default function BulkActionsToolbar({
       return;
     }
     const snaps = snapshot();
-    await Promise.all(
+    const updated = await Promise.all(
       withDate.map((i) =>
         contentRepo.update(i.id, {
           publishDate: dayjs(i.publishDate!).add(n, "day").format("YYYY-MM-DD"),
         }),
       ),
     );
+    updated.forEach(markUnsynced);
     await onChanged();
     const extra =
       `by ${n} day${Math.abs(n) === 1 ? "" : "s"}` +
@@ -154,6 +160,7 @@ export default function BulkActionsToolbar({
             onClick={async () => {
               message.destroy(UNDO_KEY);
               await contentRepo.restore(snaps);
+              snaps.forEach(markUnsynced);
               await onChanged();
               message.success("Undone");
             }}
@@ -176,12 +183,13 @@ export default function BulkActionsToolbar({
       await onTagsChanged();
     }
     const snaps = snapshot();
-    await Promise.all(
+    const results = await Promise.all(
       selectedItems.map((i) => {
         if (i.tags.includes(tagId)) return Promise.resolve(i);
         return contentRepo.update(i.id, { tags: [...i.tags, tagId] });
       }),
     );
+    results.forEach(markUnsynced);
     await onChanged();
     showUndoToast("Added tag to", snaps);
     setAddTagValue(null);
@@ -191,12 +199,13 @@ export default function BulkActionsToolbar({
   const applyRemoveTag = async () => {
     if (!removeTagValue) return;
     const snaps = snapshot();
-    await Promise.all(
+    const results = await Promise.all(
       selectedItems.map((i) => {
         if (!i.tags.includes(removeTagValue)) return Promise.resolve(i);
         return contentRepo.update(i.id, { tags: i.tags.filter((t) => t !== removeTagValue) });
       }),
     );
+    results.forEach(markUnsynced);
     await onChanged();
     showUndoToast("Removed tag from", snaps);
     setRemoveTagValue(null);
@@ -206,6 +215,10 @@ export default function BulkActionsToolbar({
   const applyDelete = async () => {
     const snaps = snapshot();
     await Promise.all(selectedIds.map((id) => contentRepo.remove(id)));
+    selectedIds.forEach((id) => {
+      clearDraft(id);
+      clearUnsynced(id);
+    });
     await onChanged();
     onClear();
     showUndoToast("Deleted", snaps);

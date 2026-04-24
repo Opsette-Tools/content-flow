@@ -34,10 +34,12 @@ import {
 } from "@/db/types";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import ContentRow from "@/components/ContentRow";
+import DirtyDot from "@/components/DirtyDot";
 import ProjectEditModal from "@/components/ProjectEditModal";
 import StatusTag from "@/components/StatusTag";
 import MediumIcon from "@/components/MediumIcon";
 import TagChips from "@/components/TagChips";
+import { isItemDirty } from "@/lib/dirty";
 import CadenceCard from "@/components/dashboard/CadenceCard";
 import { filterContent } from "@/utils/filterContent";
 import { useHeaderActions } from "@/layout/HeaderSlots";
@@ -136,7 +138,10 @@ export default function ProjectDetail() {
           dataIndex: "title",
           render: (t: string, r: ContentItem) => (
             <Space direction="vertical" size={0}>
-              <Typography.Text strong>{t}</Typography.Text>
+              <Space size={6}>
+                {isItemDirty(r.id) && <DirtyDot />}
+                <Typography.Text strong>{t}</Typography.Text>
+              </Space>
               {r.slugOrRoute && (
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   {r.slugOrRoute}

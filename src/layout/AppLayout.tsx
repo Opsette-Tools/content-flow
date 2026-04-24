@@ -13,8 +13,10 @@ import { useSettings } from "@/hooks/useSettings";
 import { useContent } from "@/hooks/useContent";
 import { useAppCommands } from "@/app/AppCommands";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import DirtyDot from "@/components/DirtyDot";
 import MediumIcon from "@/components/MediumIcon";
 import ShortcutsHelpModal from "@/components/ShortcutsHelpModal";
+import { isItemDirty } from "@/lib/dirty";
 import AppHeader from "@/components/AppHeader";
 import AppBreadcrumb from "@/components/AppBreadcrumb";
 import AboutModal from "@/components/AboutModal";
@@ -117,6 +119,7 @@ export default function AppLayout() {
             title={it.title}
           >
             <MediumIcon medium={it.medium} size={14} />
+            {isItemDirty(it.id) && <DirtyDot />}
             <span
               style={{
                 overflow: "hidden",

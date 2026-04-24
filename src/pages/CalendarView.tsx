@@ -16,8 +16,11 @@ import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
 import { useTags } from "@/hooks/useTags";
 import { contentRepo } from "@/db";
+import { isItemDirty } from "@/lib/dirty";
+import { markUnsynced } from "@/lib/unsynced";
 import { STATUS_COLORS, type ContentItem } from "@/db/types";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
+import DirtyDot from "@/components/DirtyDot";
 import StatusTag from "@/components/StatusTag";
 import ProjectTag from "@/components/ProjectTag";
 import MediumIcon from "@/components/MediumIcon";
@@ -43,6 +46,7 @@ const badgeStatusFor = (color: string) => {
 
 function DraggableItem({ item }: { item: ContentItem }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id });
+  const dirty = isItemDirty(item.id);
   return (
     <li
       ref={setNodeRef}
@@ -52,8 +56,12 @@ function DraggableItem({ item }: { item: ContentItem }) {
         opacity: isDragging ? 0.5 : 1,
         cursor: "grab",
         touchAction: "none",
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
       }}
     >
+      {dirty && <DirtyDot />}
       <Badge status={badgeStatusFor(STATUS_COLORS[item.status]) as never} text={item.title} />
     </li>
   );
@@ -167,7 +175,8 @@ export default function CalendarView() {
     if (!item || item.publishDate === newDate) return;
 
     try {
-      await contentRepo.update(itemId, { publishDate: newDate });
+      const updated = await contentRepo.update(itemId, { publishDate: newDate });
+      markUnsynced(updated);
       refresh();
       message.success(`Rescheduled to ${dayjs(newDate).format("MMM D")}`);
     } catch {

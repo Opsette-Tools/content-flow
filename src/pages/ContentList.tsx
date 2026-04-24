@@ -9,6 +9,7 @@ import {
   Grid,
   Input,
   List,
+  Modal,
   Row,
   Select,
   Space,
@@ -23,6 +24,8 @@ import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
 import { useTags } from "@/hooks/useTags";
 import { contentRepo } from "@/db";
+import { clearDraft } from "@/lib/drafts";
+import { clearUnsynced, markUnsynced } from "@/lib/unsynced";
 import {
   CONTENT_STATUSES,
   FUNNEL_COLORS,
@@ -40,6 +43,8 @@ import TagChips from "@/components/TagChips";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import ContentRow from "@/components/ContentRow";
 import BulkActionsToolbar from "@/components/BulkActionsToolbar";
+import DirtyDot from "@/components/DirtyDot";
+import { isItemDirty } from "@/lib/dirty";
 import { useAppCommands } from "@/app/AppCommands";
 import { filterContent } from "@/utils/filterContent";
 import { useHeaderActions } from "@/layout/HeaderSlots";
@@ -143,20 +148,36 @@ export default function ContentList() {
   useHeaderActions(headerNode);
 
   const handleQuickStatus = async (id: string, status: ContentStatus) => {
-    await contentRepo.update(id, { status });
+    const updated = await contentRepo.update(id, { status });
+    markUnsynced(updated);
     message.success("Status updated");
     refresh();
   };
 
   const handleDuplicate = async (id: string) => {
-    await contentRepo.duplicate(id);
+    const copy = await contentRepo.duplicate(id);
+    if (copy) markUnsynced(copy);
     refresh();
   };
 
-  const handleDelete = async (id: string) => {
-    await contentRepo.remove(id);
-    message.success("Deleted");
-    refresh();
+  const handleDelete = (item: ContentItem) => {
+    Modal.confirm({
+      title: "Delete this item?",
+      content: (
+        <span>
+          <strong>{item.title}</strong> will be removed. This can't be undone.
+        </span>
+      ),
+      okText: "Delete",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        await contentRepo.remove(item.id);
+        clearDraft(item.id);
+        clearUnsynced(item.id);
+        message.success("Deleted");
+        refresh();
+      },
+    });
   };
 
   const handleChanged = () => {
@@ -164,27 +185,35 @@ export default function ContentList() {
     refreshTags();
   };
 
-  const rowActions = (item: ContentItem) => (
-    <Dropdown
-      menu={{
-        items: [
-          { key: "edit", icon: <EditOutlined />, label: "Edit", onClick: () => open(item.id) },
-          { key: "dup", icon: <CopyOutlined />, label: "Duplicate", onClick: () => handleDuplicate(item.id) },
-          { type: "divider" },
-          ...CONTENT_STATUSES.map((s) => ({
-            key: `s-${s}`,
-            label: `Set: ${s}`,
-            onClick: () => handleQuickStatus(item.id, s),
-          })),
-          { type: "divider" },
-          { key: "del", icon: <DeleteOutlined />, danger: true, label: "Delete", onClick: () => handleDelete(item.id) },
-        ],
-      }}
-      trigger={["click"]}
-    >
-      <Button type="text" icon={<MoreOutlined />} onClick={(e) => e.stopPropagation()} />
-    </Dropdown>
-  );
+  const rowActions = (item: ContentItem) => {
+    // Wrap each menu-item handler to stop the click from bubbling up to the
+    // row's onClick (which would open the drawer after a delete/duplicate).
+    const stop = <T,>(fn: (arg: T) => void) => (info: { domEvent: React.MouseEvent | React.KeyboardEvent }) => {
+      info.domEvent.stopPropagation();
+      fn(undefined as unknown as T);
+    };
+    return (
+      <Dropdown
+        menu={{
+          items: [
+            { key: "edit", icon: <EditOutlined />, label: "Edit", onClick: stop(() => open(item.id)) },
+            { key: "dup", icon: <CopyOutlined />, label: "Duplicate", onClick: stop(() => handleDuplicate(item.id)) },
+            { type: "divider" },
+            ...CONTENT_STATUSES.map((s) => ({
+              key: `s-${s}`,
+              label: `Set: ${s}`,
+              onClick: stop(() => handleQuickStatus(item.id, s)),
+            })),
+            { type: "divider" },
+            { key: "del", icon: <DeleteOutlined />, danger: true, label: "Delete", onClick: stop(() => handleDelete(item)) },
+          ],
+        }}
+        trigger={["click"]}
+      >
+        <Button type="text" icon={<MoreOutlined />} onClick={(e) => e.stopPropagation()} />
+      </Dropdown>
+    );
+  };
 
   const filtersBar = (
     <Card size="small" className="app-section">
@@ -287,7 +316,10 @@ export default function ContentList() {
           dataIndex: "title",
           render: (t: string, r: ContentItem) => (
             <Space direction="vertical" size={0}>
-              <Typography.Text strong>{t}</Typography.Text>
+              <Space size={6}>
+                {isItemDirty(r.id) && <DirtyDot />}
+                <Typography.Text strong>{t}</Typography.Text>
+              </Space>
               {r.slugOrRoute && <Typography.Text type="secondary" style={{ fontSize: 12 }}>{r.slugOrRoute}</Typography.Text>}
             </Space>
           ),

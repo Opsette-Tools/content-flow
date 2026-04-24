@@ -15,6 +15,7 @@ import {
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { contentRepo } from "@/db";
+import { markUnsynced } from "@/lib/unsynced";
 import { useSettings } from "@/hooks/useSettings";
 import MediumIcon from "./MediumIcon";
 import type { ContentItem, Project } from "@/db/types";
@@ -93,12 +94,13 @@ export default function CommandPalette({
   const quickCapture = async (title: string) => {
     const trimmed = title.trim();
     if (!trimmed) return;
-    await contentRepo.create({
+    const created = await contentRepo.create({
       title: trimmed,
       status: "Idea",
       publishDate: null,
       projectId: settings?.globalProjectFilter ?? null,
     });
+    markUnsynced(created);
     message.success("Idea captured — view in Inbox");
     onCreatedItem();
     setQuery("");

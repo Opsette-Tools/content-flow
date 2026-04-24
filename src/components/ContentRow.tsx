@@ -1,6 +1,8 @@
 import { Checkbox, List, Space, Tag } from "antd";
 import dayjs from "dayjs";
 import { FUNNEL_COLORS, type ContentItem, type Project, type Tag as TagType } from "@/db/types";
+import { isItemDirty } from "@/lib/dirty";
+import DirtyDot from "./DirtyDot";
 import MediumIcon from "./MediumIcon";
 import ProjectTag from "./ProjectTag";
 import StatusTag from "./StatusTag";
@@ -55,6 +57,7 @@ export default function ContentRow({
           <Space style={{ width: "100%", justifyContent: "space-between" }}>
             <Space size={6}>
               <MediumIcon medium={item.medium} />
+              {isItemDirty(item.id) && <DirtyDot />}
               <span>{item.title}</span>
             </Space>
             <StatusTag status={item.status} />

@@ -3,6 +3,7 @@ import { App as AntApp, ConfigProvider } from "antd";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { darkTheme, lightTheme } from "@/theme/tokens";
 import { seedIfEmpty } from "@/db";
+import { pruneOrphanDrafts } from "@/lib/cleanup";
 import { useSettings } from "@/hooks/useSettings";
 import AppLayout from "@/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
@@ -22,7 +23,9 @@ const App = () => {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    seedIfEmpty().finally(() => setReady(true));
+    seedIfEmpty()
+      .then(() => pruneOrphanDrafts())
+      .finally(() => setReady(true));
   }, []);
 
   const isDark = settings?.theme === "dark";
