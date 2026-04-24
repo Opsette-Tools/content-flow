@@ -17,7 +17,6 @@ import { useProjects } from "@/hooks/useProjects";
 import { useTags } from "@/hooks/useTags";
 import { contentRepo } from "@/db";
 import { isItemDirty } from "@/lib/dirty";
-import { markUnsynced } from "@/lib/unsynced";
 import { STATUS_COLORS, type ContentItem } from "@/db/types";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import DirtyDot from "@/components/DirtyDot";
@@ -175,8 +174,7 @@ export default function CalendarView() {
     if (!item || item.publishDate === newDate) return;
 
     try {
-      const updated = await contentRepo.update(itemId, { publishDate: newDate });
-      markUnsynced(updated);
+      await contentRepo.update(itemId, { publishDate: newDate });
       refresh();
       message.success(`Rescheduled to ${dayjs(newDate).format("MMM D")}`);
     } catch {

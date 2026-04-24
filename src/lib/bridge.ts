@@ -10,7 +10,7 @@
 //      `ContentFlowMetaValue`) but the bridge keeps them `unknown` on the
 //      wire — the parent treats blobs as opaque.
 
-import type { AppSettings, ContentItem, Project, Tag } from "@/db/types";
+import type { ContentItem, Project, Tag } from "@/db/types";
 
 // In dev builds we additionally trust http://localhost:8080, the Content Flow
 // dev-server origin, so the bridge harness at /bridge-harness.html can post a
@@ -29,13 +29,14 @@ const REQUEST_TIMEOUT_MS = 5000;
 // The value shipped inside a content-item iframe_app_data row.
 export type ContentFlowItemValue = ContentItem;
 
-// The value shipped inside the "meta" iframe_app_data row. Projects + tags +
-// the small slice of settings that syncs. recentItemIds / seeded / dismissed
-// flags stay device-local (BRIDGE_MIGRATION.md, Presets shape section).
-export type ContentFlowMetaValue = {
+// The payload shipped via bridge.savePresets into iframe_apps.presets JSONB.
+// Per BRIDGE_MIGRATION.md (line 121): "Presets is exactly two fields: `projects`
+// and `tags`. Nothing else. Settings are device-local."
+// theme / globalProjectFilter / recentItemIds all live in content-flow.device.v1,
+// NOT in presets and NOT in any iframe_app_data row.
+export type ContentFlowPresets = {
   projects: Project[];
   tags: Tag[];
-  settings: Pick<AppSettings, "theme" | "globalProjectFilter">;
 };
 
 export interface InitItem {

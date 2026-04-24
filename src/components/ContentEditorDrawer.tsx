@@ -17,7 +17,7 @@ import dayjs from "dayjs";
 import { contentRepo, settingsRepo, tagsRepo } from "@/db";
 import { useSettings } from "@/hooks/useSettings";
 import { clearDraft, getDraft, setDraft } from "@/lib/drafts";
-import { clearUnsynced, markUnsynced } from "@/lib/unsynced";
+import { clearUnsynced } from "@/lib/unsynced";
 import {
   CONTENT_STATUSES,
   DEFAULT_CHECKLIST,
@@ -332,12 +332,13 @@ export default function ContentEditorDrawer({
         });
         saved = created;
         // Move the draft/unsynced keys off the tentative id if they differ.
+        // contentRepo.create has already marked the real id as unsynced; only
+        // the tentative ghost needs cleaning up.
         if (activeId !== created.id) {
           clearDraft(activeId);
           clearUnsynced(activeId);
         }
       }
-      markUnsynced(saved);
       clearDraft(saved.id);
       message.success("Saved");
       onChanged();
@@ -352,8 +353,7 @@ export default function ContentEditorDrawer({
 
   const handleDuplicate = async () => {
     if (!persisted) return;
-    const copy = await contentRepo.duplicate(persisted.id);
-    if (copy) markUnsynced(copy);
+    await contentRepo.duplicate(persisted.id);
     message.success("Duplicated");
     onChanged();
     onClose();
@@ -362,8 +362,7 @@ export default function ContentEditorDrawer({
   const handleDelete = async () => {
     if (!persisted) return;
     await contentRepo.remove(persisted.id);
-    clearDraft(persisted.id);
-    clearUnsynced(persisted.id);
+    // contentRepo.remove clears drafts/unsynced internally.
     message.success("Deleted");
     onChanged();
     onClose();

@@ -24,8 +24,6 @@ import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
 import { useTags } from "@/hooks/useTags";
 import { contentRepo } from "@/db";
-import { clearDraft } from "@/lib/drafts";
-import { clearUnsynced, markUnsynced } from "@/lib/unsynced";
 import {
   CONTENT_STATUSES,
   FUNNEL_COLORS,
@@ -148,15 +146,13 @@ export default function ContentList() {
   useHeaderActions(headerNode);
 
   const handleQuickStatus = async (id: string, status: ContentStatus) => {
-    const updated = await contentRepo.update(id, { status });
-    markUnsynced(updated);
+    await contentRepo.update(id, { status });
     message.success("Status updated");
     refresh();
   };
 
   const handleDuplicate = async (id: string) => {
-    const copy = await contentRepo.duplicate(id);
-    if (copy) markUnsynced(copy);
+    await contentRepo.duplicate(id);
     refresh();
   };
 
@@ -172,8 +168,6 @@ export default function ContentList() {
       okButtonProps: { danger: true },
       onOk: async () => {
         await contentRepo.remove(item.id);
-        clearDraft(item.id);
-        clearUnsynced(item.id);
         message.success("Deleted");
         refresh();
       },

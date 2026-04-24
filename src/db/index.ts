@@ -1,6 +1,19 @@
 import { openDB, type IDBPDatabase } from "idb";
 import type { AppSettings, ContentItem, Medium, Project, Tag } from "./types";
 import { DEFAULT_CHECKLIST, TAG_COLORS } from "./types";
+import {
+  getBridgeInstance,
+  isBridgeMode,
+  isParentKnown,
+  markParentKnown,
+  forgetParentKnown,
+  resetParentKnown,
+} from "@/lib/bridgeInstance";
+import type { Bridge } from "@/lib/bridge";
+import { clearDraft } from "@/lib/drafts";
+import { clearUnsynced, getAllUnsyncedRecords, markUnsynced } from "@/lib/unsynced";
+import { getDeviceState, patchDeviceState } from "@/lib/device";
+import { flushPresets } from "./presetsRepo";
 
 const DB_NAME = "content-planner";
 const DB_VERSION = 3;
@@ -85,6 +98,19 @@ const uid = () =>
 
 const now = () => Date.now();
 
+// Helper: read current projects + tags from IDB and fire bridge.savePresets.
+// Cheap — both tables stay tiny (< 200 entries in practice). Called from
+// every project/tag mutation in bridge mode.
+async function flushPresetsFromIdb(): Promise<void> {
+  if (!isBridgeMode()) return;
+  const db = await getDb();
+  const [projects, tags] = await Promise.all([
+    db.getAll("projects") as Promise<Project[]>,
+    db.getAll("tags") as Promise<Tag[]>,
+  ]);
+  await flushPresets(projects, tags);
+}
+
 export const projectsRepo = {
   async list(): Promise<Project[]> {
     const db = await getDb();
@@ -99,6 +125,7 @@ export const projectsRepo = {
     const db = await getDb();
     const project: Project = { ...data, id: uid(), createdAt: now(), updatedAt: now() };
     await db.put("projects", project);
+    await flushPresetsFromIdb();
     return project;
   },
   async update(id: string, patch: Partial<Project>): Promise<Project> {
@@ -106,22 +133,56 @@ export const projectsRepo = {
     const existing = (await db.get("projects", id)) as Project;
     const updated = { ...existing, ...patch, id, updatedAt: now() };
     await db.put("projects", updated);
+    await flushPresetsFromIdb();
     return updated;
   },
   async remove(id: string): Promise<void> {
     const db = await getDb();
     await db.delete("projects", id);
-    // Detach content items
+    // Detach content items locally + collect affected for bridge re-save.
     const items = (await db.getAll("content")) as ContentItem[];
     const tx = db.transaction("content", "readwrite");
+    const affected: ContentItem[] = [];
     for (const it of items) {
       if (it.projectId === id) {
-        await tx.store.put({ ...it, projectId: null, updatedAt: now() });
+        const next = { ...it, projectId: null, updatedAt: now() };
+        await tx.store.put(next);
+        affected.push(next);
       }
     }
     await tx.done;
+    // Presets flush + per-item saves fire in parallel in bridge mode.
+    await Promise.allSettled([
+      flushPresetsFromIdb(),
+      ...affected.map((item) => persistItem(item)),
+    ]);
+  },
+  // Used by hydrateFromBridge. Never call from UI.
+  async putRaw(project: Project): Promise<void> {
+    const db = await getDb();
+    await db.put("projects", project);
   },
 };
+
+// Write-path for a content item. Marks unsynced locally FIRST (both modes),
+// then in bridge mode fires bridge.save and clears the unsynced flag on ack.
+// Standalone mode leaves the unsynced flag set — B3 has no bridge to ack it,
+// but the B1 helpers predate this and still work fine (dirty-dot UI is
+// drafts-driven, not unsynced-driven, per src/lib/dirty.ts).
+async function persistItem(item: ContentItem): Promise<void> {
+  markUnsynced(item);
+  const bridge = getBridgeInstance();
+  if (!bridge) return;
+  try {
+    await bridge.save(item.id, item);
+    markParentKnown(item.id);
+    clearDraft(item.id);
+    clearUnsynced(item.id);
+  } catch {
+    // Timeout or parent error. Unsynced keys already hold the record; user
+    // can retry. onTimeout hook in main.tsx surfaces the toast.
+  }
+}
 
 export const contentRepo = {
   async list(): Promise<ContentItem[]> {
@@ -158,6 +219,7 @@ export const contentRepo = {
       updatedAt: now(),
     };
     await db.put("content", item);
+    await persistItem(item);
     return item;
   },
   async update(id: string, patch: Partial<ContentItem>): Promise<ContentItem> {
@@ -165,15 +227,35 @@ export const contentRepo = {
     const existing = (await db.get("content", id)) as ContentItem;
     const updated = { ...existing, ...patch, id, updatedAt: now() };
     await db.put("content", updated);
+    await persistItem(updated);
     return updated;
   },
   async remove(id: string): Promise<void> {
     const db = await getDb();
     await db.delete("content", id);
-    // Drop from recent-viewed list if present
-    const s = (await db.get("settings", "app")) as AppSettings | undefined;
-    if (s && Array.isArray(s.recentItemIds) && s.recentItemIds.includes(id)) {
-      await db.put("settings", { ...s, recentItemIds: s.recentItemIds.filter((x) => x !== id) });
+    clearDraft(id);
+    clearUnsynced(id);
+    // Drop from recent-viewed list if present (in either storage layer)
+    if (isBridgeMode()) {
+      const dev = getDeviceState();
+      if (dev.recentItemIds.includes(id)) {
+        patchDeviceState({ recentItemIds: dev.recentItemIds.filter((x) => x !== id) });
+      }
+    } else {
+      const s = (await db.get("settings", "app")) as AppSettings | undefined;
+      if (s && Array.isArray(s.recentItemIds) && s.recentItemIds.includes(id)) {
+        await db.put("settings", { ...s, recentItemIds: s.recentItemIds.filter((x) => x !== id) });
+      }
+    }
+    // Bridge delete: only if the parent has ever heard of this id. Items
+    // created and deleted within one bridge session without an ack are
+    // unknown upstream — nothing to delete there.
+    const bridge = getBridgeInstance();
+    if (bridge && isParentKnown(id)) {
+      forgetParentKnown(id);
+      bridge.delete(id).catch(() => {
+        // Optimistic UI already advanced. onTimeout surfaces the toast.
+      });
     }
   },
   async restore(items: ContentItem[]): Promise<void> {
@@ -183,6 +265,11 @@ export const contentRepo = {
       await tx.store.put(item);
     }
     await tx.done;
+    // Bridge mode: each restored item re-fires save. Used by bulk-edit undo.
+    const bridge = getBridgeInstance();
+    if (bridge) {
+      await Promise.allSettled(items.map((item) => persistItem(item)));
+    }
   },
   async duplicate(id: string): Promise<ContentItem | undefined> {
     const db = await getDb();
@@ -197,7 +284,14 @@ export const contentRepo = {
       updatedAt: now(),
     };
     await db.put("content", copy);
+    await persistItem(copy);
     return copy;
+  },
+  // Used by hydrateFromBridge. Writes a single content row to IDB without
+  // firing any bridge message. Never call from UI.
+  async putRaw(item: ContentItem): Promise<void> {
+    const db = await getDb();
+    await db.put("content", item);
   },
 };
 
@@ -209,8 +303,25 @@ const DEFAULT_SETTINGS: AppSettings = {
   recentItemIds: [],
 };
 
+// In bridge mode the settings row lives in content-flow.device.v1 localStorage.
+// Per BRIDGE_MIGRATION.md lines 121-131: theme, globalProjectFilter,
+// recentItemIds, seeded, and the banner-dismissed flag are device-local —
+// they never ship to the parent via presets or any iframe_app_data row.
+// `seeded` has no meaning in bridge mode (parent is truth, no auto-seed).
+function settingsFromDevice(): AppSettings {
+  const dev = getDeviceState();
+  return {
+    id: "app",
+    theme: dev.theme,
+    globalProjectFilter: dev.globalProjectFilter,
+    seeded: true, // bridge mode treats the app as always "seeded" — no local seed
+    recentItemIds: dev.recentItemIds,
+  };
+}
+
 export const settingsRepo = {
   async get(): Promise<AppSettings> {
+    if (isBridgeMode()) return settingsFromDevice();
     const db = await getDb();
     const s = (await db.get("settings", "app")) as AppSettings | undefined;
     if (!s) {
@@ -226,6 +337,16 @@ export const settingsRepo = {
     return s;
   },
   async update(patch: Partial<AppSettings>): Promise<AppSettings> {
+    if (isBridgeMode()) {
+      // Only forward fields that exist in DeviceState. Ignore seeded.
+      const devicePatch: Parameters<typeof patchDeviceState>[0] = {};
+      if (patch.theme !== undefined) devicePatch.theme = patch.theme;
+      if (patch.globalProjectFilter !== undefined)
+        devicePatch.globalProjectFilter = patch.globalProjectFilter;
+      if (patch.recentItemIds !== undefined) devicePatch.recentItemIds = patch.recentItemIds;
+      patchDeviceState(devicePatch);
+      return settingsFromDevice();
+    }
     const db = await getDb();
     const cur = await settingsRepo.get();
     const next = { ...cur, ...patch, id: "app" as const };
@@ -261,6 +382,7 @@ export const tagsRepo = {
       createdAt: now(),
     };
     await db.put("tags", tag);
+    await flushPresetsFromIdb();
     return tag;
   },
   async update(id: string, patch: Partial<Tag>): Promise<Tag> {
@@ -268,28 +390,46 @@ export const tagsRepo = {
     const existing = (await db.get("tags", id)) as Tag;
     const updated = { ...existing, ...patch, id };
     await db.put("tags", updated);
+    await flushPresetsFromIdb();
     return updated;
   },
   async remove(id: string): Promise<void> {
     const db = await getDb();
     await db.delete("tags", id);
-    // Remove tag id from any content items
+    // Remove tag id from any content items locally + collect for bridge re-save.
     const items = (await db.getAll("content")) as ContentItem[];
     const tx = db.transaction("content", "readwrite");
+    const affected: ContentItem[] = [];
     for (const it of items) {
       if (it.tags?.includes(id)) {
-        await tx.store.put({
+        const next = {
           ...it,
           tags: it.tags.filter((t) => t !== id),
           updatedAt: now(),
-        });
+        };
+        await tx.store.put(next);
+        affected.push(next);
       }
     }
     await tx.done;
+    await Promise.allSettled([
+      flushPresetsFromIdb(),
+      ...affected.map((item) => persistItem(item)),
+    ]);
+  },
+  // Used by hydrateFromBridge. Never call from UI.
+  async putRaw(tag: Tag): Promise<void> {
+    const db = await getDb();
+    await db.put("tags", tag);
   },
 };
 
 export async function seedIfEmpty() {
+  // Per BRIDGE_MIGRATION.md line 147: "Child renders the empty state. No
+  // seeded demo data is fired off (the IDB-mode seeder is explicitly skipped
+  // under bridge)." First iframe visit gets a clean empty state; user creates
+  // their first item manually and it fires a real save.
+  if (isBridgeMode()) return;
   const settings = await settingsRepo.get();
   if (settings.seeded) return;
   const projects = await projectsRepo.list();
@@ -389,4 +529,79 @@ export async function resetAll() {
   await tx.objectStore("settings").clear();
   await tx.objectStore("tags").clear();
   await tx.done;
+}
+
+// Called once from main.tsx right after connectBridge resolves with a live
+// Bridge. Clears IDB content/projects/tags (parent is truth — abandon
+// standalone data per BRIDGE_MIGRATION.md option (c)), then seeds from
+// init.presets + init.items. Preserves the IDB settings row so any leftover
+// standalone recentItemIds aren't wiped from the device on first iframe
+// visit (bridge mode reads recentItemIds from content-flow.device.v1 so
+// this mostly doesn't matter, but the no-op keeps the migration safe).
+export async function hydrateFromBridge(bridge: Bridge): Promise<void> {
+  const db = await getDb();
+
+  // Clear shared-authoritative stores.
+  const tx = db.transaction(["projects", "content", "tags"], "readwrite");
+  await tx.objectStore("projects").clear();
+  await tx.objectStore("content").clear();
+  await tx.objectStore("tags").clear();
+  await tx.done;
+
+  // Seed projects + tags from init.presets. The wire type is ContentFlowPresets
+  // (see src/lib/bridge.ts) — stripped of any extra keys, projects/tags are
+  // arrays of domain objects.
+  const presets = bridge.init.presets as { projects?: Project[]; tags?: Tag[] } | undefined;
+  if (presets) {
+    const seedTx = db.transaction(["projects", "tags"], "readwrite");
+    for (const p of presets.projects ?? []) {
+      await seedTx.objectStore("projects").put(p);
+    }
+    for (const t of presets.tags ?? []) {
+      await seedTx.objectStore("tags").put(t);
+    }
+    await seedTx.done;
+  }
+
+  // Seed content items from init.items.
+  const itemRows = bridge.init.items;
+  const itemIds: string[] = [];
+  if (itemRows.length > 0) {
+    const seedTx = db.transaction("content", "readwrite");
+    for (const row of itemRows) {
+      const value = row.value as ContentItem | null | undefined;
+      if (!value || typeof value !== "object") continue;
+      // Tolerate partial/missing fields from old rows, same as importAllJson.
+      const item: ContentItem = {
+        ...value,
+        id: row.data_id,
+        medium: value.medium ?? mapTypeToMedium(value.contentType),
+        funnelStage: value.funnelStage ?? "None",
+        tags: Array.isArray(value.tags) ? value.tags : [],
+      };
+      await seedTx.objectStore("content").put(item);
+      itemIds.push(item.id);
+    }
+    await seedTx.done;
+  }
+
+  // Seed parentKnownIds from the hydrated item list.
+  resetParentKnown(itemIds);
+
+  // Overlay unsynced records — items the user created locally but that
+  // never reached the parent must survive a reload. Only keep records
+  // whose ids are NOT already in the hydrated set (otherwise we'd
+  // clobber the parent's authoritative copy with stale local data).
+  const unsyncedRecords = getAllUnsyncedRecords();
+  const hydrated = new Set(itemIds);
+  const overlayEntries = Object.entries(unsyncedRecords).filter(
+    ([id]) => !hydrated.has(id),
+  );
+  if (overlayEntries.length > 0) {
+    const overlayTx = db.transaction("content", "readwrite");
+    for (const [, record] of overlayEntries) {
+      await overlayTx.objectStore("content").put(record);
+    }
+    await overlayTx.done;
+  }
 }
