@@ -13,6 +13,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useContent } from "@/hooks/useContent";
 import { useAppCommands } from "@/app/AppCommands";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import DataLossBanner from "@/components/DataLossBanner";
 import DirtyDot from "@/components/DirtyDot";
 import MediumIcon from "@/components/MediumIcon";
 import ShortcutsHelpModal from "@/components/ShortcutsHelpModal";
@@ -195,6 +196,7 @@ export default function AppLayout() {
             isMobile={isMobile}
           />
           <Content>
+            <DataLossBanner />
             <BreadcrumbCenterBinder />
             <Outlet />
             <Footer

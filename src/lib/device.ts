@@ -63,3 +63,48 @@ export function patchDeviceState(patch: Partial<DeviceState>): DeviceState {
   write(next);
   return next;
 }
+
+// One-way door: set once the device first sees bridge mode. Used to gate
+// seedIfEmpty so a user who signs out after using the bridge never gets
+// demo content reseeded on top of their (now-empty) standalone IDB.
+const MIGRATED_KEY = "content-flow.migrated";
+
+export function isMigrated(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(MIGRATED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function markMigrated(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(MIGRATED_KEY, "true");
+  } catch {
+    // ignore storage errors
+  }
+}
+
+// Standalone-only data-loss banner dismissal. Persistent across reloads.
+// Never shown in bridge mode regardless of this flag's value.
+const BANNER_DISMISSED_KEY = "content-flow.banner-dismissed.v1";
+
+export function isBannerDismissed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(BANNER_DISMISSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function dismissBanner(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(BANNER_DISMISSED_KEY, "true");
+  } catch {
+    // ignore storage errors
+  }
+}

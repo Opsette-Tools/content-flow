@@ -12,7 +12,7 @@ import {
 import type { Bridge } from "@/lib/bridge";
 import { clearDraft } from "@/lib/drafts";
 import { clearUnsynced, getAllUnsyncedRecords, markUnsynced } from "@/lib/unsynced";
-import { getDeviceState, patchDeviceState } from "@/lib/device";
+import { getDeviceState, isMigrated, markMigrated, patchDeviceState } from "@/lib/device";
 import { flushPresets } from "./presetsRepo";
 
 const DB_NAME = "content-planner";
@@ -430,6 +430,11 @@ export async function seedIfEmpty() {
   // under bridge)." First iframe visit gets a clean empty state; user creates
   // their first item manually and it fires a real save.
   if (isBridgeMode()) return;
+  // Also skip if this device has ever been in bridge mode. Otherwise a user
+  // who signs out of Opsette and returns to the standalone URL would see
+  // demo content reseeded on top of their (now-cleared) IDB, which is worse
+  // than the empty state they'd expect.
+  if (isMigrated()) return;
   const settings = await settingsRepo.get();
   if (settings.seeded) return;
   const projects = await projectsRepo.list();
@@ -539,6 +544,12 @@ export async function resetAll() {
 // visit (bridge mode reads recentItemIds from content-flow.device.v1 so
 // this mostly doesn't matter, but the no-op keeps the migration safe).
 export async function hydrateFromBridge(bridge: Bridge): Promise<void> {
+  // One-way door marker. Written BEFORE any IDB destructive operation so
+  // that if this function throws mid-hydration, a subsequent standalone
+  // visit still treats the device as migrated and won't reseed demo
+  // content over half-cleared IDB.
+  if (!isMigrated()) markMigrated();
+
   const db = await getDb();
 
   // Clear shared-authoritative stores.
