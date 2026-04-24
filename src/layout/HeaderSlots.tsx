@@ -1,15 +1,28 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-interface HeaderSlotsContextValue {
-  centerNode: ReactNode;
-  actionsNode: ReactNode;
+// Two contexts — one for setters (stable across renders, never causes
+// a re-render in consumers) and one for values (changes when the header
+// content changes, only consumed by the header itself).
+//
+// Before this split, pages that called useHeaderActions(<Button .../>) would
+// subscribe to the same context that held the node values, so every set
+// triggered a re-render of the page, producing a new inline element, which
+// triggered another set. Maximum update depth exceeded.
+
+interface HeaderSettersContextValue {
   setCenter: (node: ReactNode) => void;
   clearCenter: () => void;
   setActions: (node: ReactNode) => void;
   clearActions: () => void;
 }
 
-const HeaderSlotsContext = createContext<HeaderSlotsContextValue | null>(null);
+interface HeaderNodesContextValue {
+  centerNode: ReactNode;
+  actionsNode: ReactNode;
+}
+
+const HeaderSettersContext = createContext<HeaderSettersContextValue | null>(null);
+const HeaderNodesContext = createContext<HeaderNodesContextValue>({ centerNode: null, actionsNode: null });
 
 export function HeaderSlotsProvider({ children }: { children: ReactNode }) {
   const [centerNode, setCenterNode] = useState<ReactNode>(null);
@@ -20,37 +33,51 @@ export function HeaderSlotsProvider({ children }: { children: ReactNode }) {
   const setActions = useCallback((node: ReactNode) => setActionsNode(node), []);
   const clearActions = useCallback(() => setActionsNode(null), []);
 
-  const value = useMemo(
-    () => ({ centerNode, actionsNode, setCenter, clearCenter, setActions, clearActions }),
-    [centerNode, actionsNode, setCenter, clearCenter, setActions, clearActions],
+  const setters = useMemo<HeaderSettersContextValue>(
+    () => ({ setCenter, clearCenter, setActions, clearActions }),
+    [setCenter, clearCenter, setActions, clearActions],
+  );
+  const nodes = useMemo<HeaderNodesContextValue>(
+    () => ({ centerNode, actionsNode }),
+    [centerNode, actionsNode],
   );
 
-  return <HeaderSlotsContext.Provider value={value}>{children}</HeaderSlotsContext.Provider>;
+  return (
+    <HeaderSettersContext.Provider value={setters}>
+      <HeaderNodesContext.Provider value={nodes}>{children}</HeaderNodesContext.Provider>
+    </HeaderSettersContext.Provider>
+  );
 }
 
-function useHeaderSlots(): HeaderSlotsContextValue {
-  const ctx = useContext(HeaderSlotsContext);
-  if (!ctx) throw new Error("useHeaderSlots must be used inside HeaderSlotsProvider");
+function useHeaderSetters(): HeaderSettersContextValue {
+  const ctx = useContext(HeaderSettersContext);
+  if (!ctx) throw new Error("useHeaderSetters must be used inside HeaderSlotsProvider");
   return ctx;
 }
 
 export function useHeaderSlotNodes() {
-  const { centerNode, actionsNode } = useHeaderSlots();
-  return { centerNode, actionsNode };
+  return useContext(HeaderNodesContext);
 }
 
+// `node` is new on every render of the caller. We can't dep-track it, so
+// we stash it in a ref and flush on every render. Because the setter's
+// context no longer re-renders the caller, the loop is broken.
 export function useHeaderCenter(node: ReactNode) {
-  const { setCenter, clearCenter } = useHeaderSlots();
+  const { setCenter, clearCenter } = useHeaderSetters();
+  const ref = useRef(node);
+  ref.current = node;
   useEffect(() => {
-    setCenter(node);
+    setCenter(ref.current);
     return clearCenter;
-  }, [node, setCenter, clearCenter]);
+  });
 }
 
 export function useHeaderActions(node: ReactNode) {
-  const { setActions, clearActions } = useHeaderSlots();
+  const { setActions, clearActions } = useHeaderSetters();
+  const ref = useRef(node);
+  ref.current = node;
   useEffect(() => {
-    setActions(node);
+    setActions(ref.current);
     return clearActions;
-  }, [node, setActions, clearActions]);
+  });
 }
