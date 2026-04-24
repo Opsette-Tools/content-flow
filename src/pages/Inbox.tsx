@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { Button, Card, Empty, List, Space, Typography } from "antd";
-import { InboxOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Card, Empty, List } from "antd";
+import { ThunderboltOutlined } from "@ant-design/icons";
 import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
 import { useTags } from "@/hooks/useTags";
 import ContentRow from "@/components/ContentRow";
 import { useAppCommands } from "@/app/AppCommands";
+import { useHeaderActions } from "@/layout/HeaderSlots";
 
 export default function Inbox() {
   const { items } = useContent();
@@ -24,23 +25,14 @@ export default function Inbox() {
     [items],
   );
 
+  useHeaderActions(
+    <Button type="primary" icon={<ThunderboltOutlined />} onClick={() => openPalette("capture")}>
+      Capture idea
+    </Button>,
+  );
+
   return (
     <div className="app-page">
-      <Space style={{ width: "100%", justifyContent: "space-between", marginBottom: 12 }} wrap>
-        <Space>
-          <InboxOutlined style={{ fontSize: 20 }} />
-          <Typography.Title level={4} style={{ margin: 0 }}>
-            Idea Inbox
-          </Typography.Title>
-          <Typography.Text type="secondary">
-            {ideas.length} {ideas.length === 1 ? "idea" : "ideas"}
-          </Typography.Text>
-        </Space>
-        <Button type="primary" icon={<ThunderboltOutlined />} onClick={() => openPalette("capture")}>
-          Capture idea
-        </Button>
-      </Space>
-
       <Card size="small">
         {ideas.length ? (
           <List

@@ -40,6 +40,7 @@ import MediumIcon from "@/components/MediumIcon";
 import TagChips from "@/components/TagChips";
 import CadenceCard from "@/components/dashboard/CadenceCard";
 import { filterContent } from "@/utils/filterContent";
+import { useHeaderActions } from "@/layout/HeaderSlots";
 
 const { useBreakpoint } = Grid;
 const { RangePicker } = DatePicker;
@@ -109,6 +110,19 @@ export default function ProjectDetail() {
   const handleChanged = () => {
     refreshItems();
   };
+
+  useHeaderActions(
+    project ? (
+      <Space>
+        <Button icon={<EditOutlined />} onClick={() => setEditProjectOpen(true)}>
+          Edit project
+        </Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)}>
+          New
+        </Button>
+      </Space>
+    ) : null,
+  );
 
   const desktopTable = (
     <Table
@@ -190,50 +204,20 @@ export default function ProjectDetail() {
 
   return (
     <div className="app-page">
-      <Card className="app-section">
-        <Space style={{ width: "100%", justifyContent: "space-between" }} align="start" wrap>
-          <Space direction="vertical" size={4} style={{ flex: 1, minWidth: 200 }}>
-            <Space size={10} align="center">
-              <span
-                aria-hidden
-                style={{
-                  display: "inline-block",
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: project.color,
-                }}
-              />
-              <Typography.Title level={3} style={{ margin: 0 }}>
-                {project.name}
-              </Typography.Title>
-            </Space>
-            {project.description && (
-              <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
-                {project.description}
-              </Typography.Paragraph>
-            )}
-          </Space>
-          <Space wrap>
-            <Button icon={<EditOutlined />} onClick={() => setEditProjectOpen(true)}>
-              Edit project
-            </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)}>
-              New content
-            </Button>
-          </Space>
-        </Space>
-
-        {project.cadenceTarget && (
-          <div style={{ marginTop: 16, maxWidth: 420 }}>
-            <CadenceCard project={project} items={items} />
-          </div>
-        )}
-      </Card>
-
-      <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 8 }}>
-        Content ({filtered.length})
-      </Typography.Title>
+      {(project.description || project.cadenceTarget) && (
+        <Card className="app-section">
+          {project.description && (
+            <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+              {project.description}
+            </Typography.Paragraph>
+          )}
+          {project.cadenceTarget && (
+            <div style={{ marginTop: project.description ? 16 : 0, maxWidth: 420 }}>
+              <CadenceCard project={project} items={items} />
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card size="small" className="app-section">
         <Row gutter={[8, 8]}>

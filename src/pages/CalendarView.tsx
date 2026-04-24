@@ -21,6 +21,7 @@ import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import StatusTag from "@/components/StatusTag";
 import ProjectTag from "@/components/ProjectTag";
 import MediumIcon from "@/components/MediumIcon";
+import { useHeaderActions } from "@/layout/HeaderSlots";
 
 const { useBreakpoint } = Grid;
 
@@ -141,6 +142,21 @@ export default function CalendarView() {
     setDefaultDate(selectedDate ? selectedDate.format("YYYY-MM-DD") : null);
     setEditorOpen(true);
   };
+
+  useHeaderActions(
+    <Button
+      type="primary"
+      icon={<PlusOutlined />}
+      onClick={() => {
+        setSelectedDate(null);
+        setDefaultDate(null);
+        setEditId(null);
+        setEditorOpen(true);
+      }}
+    >
+      New
+    </Button>,
+  );
 
   const onDragEnd = async (e: DragEndEvent) => {
     const itemId = String(e.active.id);

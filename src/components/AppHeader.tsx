@@ -1,13 +1,13 @@
-import { Layout, Typography, Switch, Space, Button } from "antd";
+import type { ReactNode } from "react";
+import { Layout, Typography, Switch, Button } from "antd";
 import {
   SunOutlined,
   MoonOutlined,
   MenuOutlined,
-  ThunderboltOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 
 const { Header: AntHeader } = Layout;
-const { Title } = Typography;
 
 interface AppHeaderProps {
   isDark: boolean;
@@ -15,6 +15,8 @@ interface AppHeaderProps {
   onOpenPalette: () => void;
   onOpenMobileDrawer: () => void;
   isMobile: boolean;
+  headerCenter?: ReactNode;
+  headerActions?: ReactNode;
 }
 
 export default function AppHeader({
@@ -23,6 +25,8 @@ export default function AppHeader({
   onOpenPalette,
   onOpenMobileDrawer,
   isMobile,
+  headerCenter,
+  headerActions,
 }: AppHeaderProps) {
   return (
     <AntHeader
@@ -33,14 +37,14 @@ export default function AppHeader({
         zIndex: 100,
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
         padding: "0 20px",
         height: 60,
         background: isDark ? "#141414" : "#ffffff",
         borderBottom: `1px solid ${isDark ? "#303030" : "#EAEAEA"}`,
+        gap: 16,
       }}
     >
-      <div style={{ width: 80, display: "flex", alignItems: "center" }}>
+      <div style={{ width: isMobile ? 40 : 0, display: "flex", alignItems: "center", flexShrink: 0 }}>
         {isMobile && (
           <Button
             type="text"
@@ -51,39 +55,29 @@ export default function AppHeader({
         )}
       </div>
 
-      <Space align="center" size={10}>
-        <img
-          src={`${import.meta.env.BASE_URL}favicon.svg`}
-          alt=""
-          width={22}
-          height={22}
-          style={{ display: "block" }}
-        />
-        <Title
-          level={3}
-          style={{
-            margin: 0,
-            fontSize: 22,
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-            lineHeight: 1,
-          }}
-        >
-          Content Flow
-        </Title>
-      </Space>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          alignItems: "center",
+          overflow: "hidden",
+        }}
+      >
+        {headerCenter}
+      </div>
 
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "flex-end",
           gap: 12,
+          flexShrink: 0,
         }}
       >
         <Button
           type="text"
-          icon={<ThunderboltOutlined />}
+          icon={<SearchOutlined />}
           onClick={onOpenPalette}
           title="Open command palette (Ctrl/Cmd+K)"
           aria-label="Open command palette"
@@ -111,6 +105,7 @@ export default function AppHeader({
             }}
           />
         </div>
+        {headerActions}
       </div>
     </AntHeader>
   );

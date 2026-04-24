@@ -42,8 +42,6 @@ export default function Settings() {
 
   return (
     <div className="app-page">
-      <Typography.Title level={4}>Settings</Typography.Title>
-
       <Card title="Appearance" size="small" style={{ marginBottom: 12 }}>
         <Space>
           <span>Dark mode</span>

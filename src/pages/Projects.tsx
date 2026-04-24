@@ -17,6 +17,7 @@ import { projectsRepo } from "@/db";
 import { type Project } from "@/db/types";
 import { useProjects } from "@/hooks/useProjects";
 import ProjectEditModal from "@/components/ProjectEditModal";
+import { useHeaderActions } from "@/layout/HeaderSlots";
 
 export default function Projects() {
   const { projects, refresh } = useProjects();
@@ -40,13 +41,14 @@ export default function Projects() {
     refresh();
   };
 
+  useHeaderActions(
+    <Button type="primary" icon={<PlusOutlined />} onClick={openNew}>
+      New
+    </Button>,
+  );
+
   return (
     <div className="app-page">
-      <Space style={{ width: "100%", justifyContent: "space-between", marginBottom: 12 }} wrap>
-        <Typography.Title level={4} style={{ margin: 0 }}>Projects</Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openNew}>New project</Button>
-      </Space>
-
       {projects.length ? (
         <Row gutter={[12, 12]}>
           {projects.map((p) => (

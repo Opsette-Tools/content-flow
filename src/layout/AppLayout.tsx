@@ -19,6 +19,7 @@ import AppHeader from "@/components/AppHeader";
 import AppBreadcrumb from "@/components/AppBreadcrumb";
 import AboutModal from "@/components/AboutModal";
 import PrivacyModal from "@/components/PrivacyModal";
+import { HeaderSlotsProvider, useHeaderCenter, useHeaderSlotNodes } from "@/layout/HeaderSlots";
 
 const { Sider, Content, Footer } = Layout;
 const { useBreakpoint } = Grid;
@@ -31,6 +32,12 @@ const items = [
   { key: "/projects", icon: <AppstoreOutlined />, label: "Projects" },
   { key: "/settings", icon: <SettingOutlined />, label: "Settings" },
 ];
+
+function BreadcrumbCenterBinder() {
+  const breadcrumb = useMemo(() => <AppBreadcrumb />, []);
+  useHeaderCenter(breadcrumb);
+  return null;
+}
 
 export default function AppLayout() {
   const { settings, update } = useSettings();
@@ -161,115 +168,124 @@ export default function AppLayout() {
   );
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      {!isMobile && (
-        <Sider
-          collapsible
-          collapsed={collapsed}
-          onCollapse={setCollapsed}
-          width={220}
-          breakpoint="lg"
-          theme={dark ? "dark" : "light"}
-        >
-          {siderHeader}
-          {sidebarBody}
-        </Sider>
-      )}
-      <Layout>
-        <AppHeader
-          isDark={dark}
-          onToggleDark={(v) => update({ theme: v ? "dark" : "light" })}
-          onOpenPalette={() => openPalette("navigation")}
-          onOpenMobileDrawer={() => setDrawerOpen(true)}
-          isMobile={isMobile}
-        />
-        <Content>
-          <div
-            style={{
-              padding: isMobile ? "8px 16px 0" : "12px 24px 0",
-            }}
+    <HeaderSlotsProvider>
+      <Layout style={{ minHeight: "100vh" }}>
+        {!isMobile && (
+          <Sider
+            collapsible
+            collapsed={collapsed}
+            onCollapse={setCollapsed}
+            width={220}
+            breakpoint="lg"
+            theme={dark ? "dark" : "light"}
           >
-            <AppBreadcrumb />
-          </div>
-          <Outlet />
-          <Footer
-            className="no-print"
-            style={{
-              textAlign: "center",
-              background: "transparent",
-              padding: "16px 20px",
-              fontSize: 13,
-              color: dark ? "#64748B" : "#94A3B8",
-            }}
-          >
-            <Space split={<span style={{ color: dark ? "#475569" : "#CBD5E1" }}>·</span>}>
-              <button
-                onClick={() => setAboutOpen(true)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "inherit",
-                  fontSize: "inherit",
-                  padding: 0,
-                }}
-              >
-                About
-              </button>
-              <button
-                onClick={() => setPrivacyOpen(true)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "inherit",
-                  fontSize: "inherit",
-                  padding: 0,
-                }}
-              >
-                Privacy
-              </button>
-              <span>
-                By{" "}
-                <a
-                  href="https://opsette.io"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "inherit", textDecoration: "underline" }}
+            {siderHeader}
+            {sidebarBody}
+          </Sider>
+        )}
+        <Layout>
+          <HeaderWithSlots
+            isDark={dark}
+            onToggleDark={(v) => update({ theme: v ? "dark" : "light" })}
+            onOpenPalette={() => openPalette("navigation")}
+            onOpenMobileDrawer={() => setDrawerOpen(true)}
+            isMobile={isMobile}
+          />
+          <Content>
+            <BreadcrumbCenterBinder />
+            <Outlet />
+            <Footer
+              className="no-print"
+              style={{
+                textAlign: "center",
+                background: "transparent",
+                padding: "16px 20px",
+                fontSize: 13,
+                color: dark ? "#64748B" : "#94A3B8",
+              }}
+            >
+              <Space split={<span style={{ color: dark ? "#475569" : "#CBD5E1" }}>·</span>}>
+                <button
+                  onClick={() => setAboutOpen(true)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "inherit",
+                    fontSize: "inherit",
+                    padding: 0,
+                  }}
                 >
-                  Opsette
-                </a>
-              </span>
-            </Space>
-          </Footer>
-        </Content>
+                  About
+                </button>
+                <button
+                  onClick={() => setPrivacyOpen(true)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "inherit",
+                    fontSize: "inherit",
+                    padding: 0,
+                  }}
+                >
+                  Privacy
+                </button>
+                <span>
+                  By{" "}
+                  <a
+                    href="https://opsette.io"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "inherit", textDecoration: "underline" }}
+                  >
+                    Opsette
+                  </a>
+                </span>
+              </Space>
+            </Footer>
+          </Content>
+        </Layout>
+
+        <Drawer
+          open={drawerOpen}
+          placement="left"
+          onClose={() => setDrawerOpen(false)}
+          title={
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <img
+                src={`${import.meta.env.BASE_URL}favicon.svg`}
+                alt=""
+                width={20}
+                height={20}
+                style={{ display: "block" }}
+              />
+              <span>Content Flow</span>
+            </div>
+          }
+          width={260}
+          styles={{ body: { padding: 0 } }}
+        >
+          {sidebarBody}
+        </Drawer>
+
+        <ShortcutsHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
+        <PrivacyModal open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
       </Layout>
-
-      <Drawer
-        open={drawerOpen}
-        placement="left"
-        onClose={() => setDrawerOpen(false)}
-        title={
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <img
-              src={`${import.meta.env.BASE_URL}favicon.svg`}
-              alt=""
-              width={20}
-              height={20}
-              style={{ display: "block" }}
-            />
-            <span>Content Flow</span>
-          </div>
-        }
-        width={260}
-        styles={{ body: { padding: 0 } }}
-      >
-        {sidebarBody}
-      </Drawer>
-
-      <ShortcutsHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
-      <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
-      <PrivacyModal open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
-    </Layout>
+    </HeaderSlotsProvider>
   );
+}
+
+interface HeaderWithSlotsProps {
+  isDark: boolean;
+  onToggleDark: (v: boolean) => void;
+  onOpenPalette: () => void;
+  onOpenMobileDrawer: () => void;
+  isMobile: boolean;
+}
+
+function HeaderWithSlots(props: HeaderWithSlotsProps) {
+  const { centerNode, actionsNode } = useHeaderSlotNodes();
+  return <AppHeader {...props} headerCenter={centerNode} headerActions={actionsNode} />;
 }

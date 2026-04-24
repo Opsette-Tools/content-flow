@@ -41,6 +41,7 @@ import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import ContentRow from "@/components/ContentRow";
 import { useAppCommands } from "@/app/AppCommands";
 import { filterContent } from "@/utils/filterContent";
+import { useHeaderActions } from "@/layout/HeaderSlots";
 import type { InputRef } from "antd";
 
 const { useBreakpoint } = Grid;
@@ -95,6 +96,12 @@ export default function ContentList() {
     setEditId(id);
     setEditorOpen(true);
   };
+
+  useHeaderActions(
+    <Button type="primary" icon={<PlusOutlined />} onClick={() => open(null)}>
+      New
+    </Button>,
+  );
 
   const handleQuickStatus = async (id: string, status: ContentStatus) => {
     await contentRepo.update(id, { status });
@@ -281,10 +288,6 @@ export default function ContentList() {
 
   return (
     <div className="app-page">
-      <Space style={{ width: "100%", justifyContent: "space-between", marginBottom: 12 }} wrap>
-        <Typography.Title level={4} style={{ margin: 0 }}>Content</Typography.Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => open(null)}>New</Button>
-      </Space>
       {filtersBar}
       <Card size="small">
         {filtered.length ? (isMobile ? mobileList : desktopTable) : <Empty description="No content matches filters" />}

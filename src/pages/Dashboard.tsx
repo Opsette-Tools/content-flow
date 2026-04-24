@@ -12,6 +12,7 @@ import PublishingHeatmap from "@/components/dashboard/PublishingHeatmap";
 import CadenceCard from "@/components/dashboard/CadenceCard";
 import DistributionCard from "@/components/dashboard/DistributionCard";
 import GapStrip from "@/components/dashboard/GapStrip";
+import { useHeaderActions } from "@/layout/HeaderSlots";
 
 export default function Dashboard() {
   const { items, refresh } = useContent();
@@ -57,6 +58,12 @@ export default function Dashboard() {
     refreshTags();
     refreshProjects();
   };
+
+  useHeaderActions(
+    <Button type="primary" icon={<PlusOutlined />} onClick={() => open(null)}>
+      New
+    </Button>,
+  );
 
   const renderItem = (i: typeof items[number], showOverdue = false) => (
     <List.Item
@@ -163,17 +170,6 @@ export default function Dashboard() {
         </Col>
       </Row>
 
-      <Button
-        className="fab"
-        type="primary"
-        size="large"
-        shape="round"
-        icon={<PlusOutlined />}
-        onClick={() => open(null)}
-      >
-        Quick add
-      </Button>
-
       <ContentEditorDrawer
         open={editorOpen}
         itemId={editId}
@@ -185,7 +181,7 @@ export default function Dashboard() {
 
       {!items.length && (
         <Typography.Paragraph type="secondary" style={{ marginTop: 16 }}>
-          Tip: tap <b>Quick add</b> to create your first content item.
+          Tip: use <b>New</b> in the header to create your first item.
         </Typography.Paragraph>
       )}
     </div>
