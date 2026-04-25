@@ -37,11 +37,11 @@ export default function AppHeader({
         zIndex: 100,
         display: "flex",
         alignItems: "center",
-        padding: "0 20px",
+        padding: isMobile ? "0 12px" : "0 20px",
         height: 60,
         background: isDark ? "#141414" : "#ffffff",
         borderBottom: `1px solid ${isDark ? "#303030" : "#EAEAEA"}`,
-        gap: 16,
+        gap: isMobile ? 6 : 16,
       }}
     >
       <div style={{ width: isMobile ? 40 : 0, display: "flex", alignItems: "center", flexShrink: 0 }}>
@@ -71,7 +71,7 @@ export default function AppHeader({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 12,
+          gap: isMobile ? 4 : 12,
           flexShrink: 0,
         }}
       >
@@ -88,23 +88,33 @@ export default function AppHeader({
             </Typography.Text>
           )}
         </Button>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <SunOutlined
-            style={{
-              opacity: isDark ? 0.4 : 1,
-              fontSize: 13,
-              color: isDark ? "#94A3B8" : "#64748B",
-            }}
+        {isMobile ? (
+          <Button
+            type="text"
+            icon={isDark ? <MoonOutlined /> : <SunOutlined />}
+            onClick={() => onToggleDark(!isDark)}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
           />
-          <Switch checked={isDark} onChange={onToggleDark} size="small" />
-          <MoonOutlined
-            style={{
-              opacity: isDark ? 1 : 0.4,
-              fontSize: 13,
-              color: isDark ? "#E4C49A" : "#94A3B8",
-            }}
-          />
-        </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <SunOutlined
+              style={{
+                opacity: isDark ? 0.4 : 1,
+                fontSize: 13,
+                color: isDark ? "#94A3B8" : "#64748B",
+              }}
+            />
+            <Switch checked={isDark} onChange={onToggleDark} size="small" />
+            <MoonOutlined
+              style={{
+                opacity: isDark ? 1 : 0.4,
+                fontSize: 13,
+                color: isDark ? "#E4C49A" : "#94A3B8",
+              }}
+            />
+          </div>
+        )}
         {headerActions}
       </div>
     </AntHeader>

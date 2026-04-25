@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Checkbox, List, Space, Tag } from "antd";
 import dayjs from "dayjs";
 import { FUNNEL_COLORS, type ContentItem, type Project, type Tag as TagType } from "@/db/types";
@@ -17,6 +18,7 @@ interface Props {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  actions?: ReactNode;
 }
 
 export default function ContentRow({
@@ -28,6 +30,7 @@ export default function ContentRow({
   selectable = false,
   selected = false,
   onToggleSelect,
+  actions,
 }: Props) {
   const handleClick = () => {
     if (selectable) {
@@ -54,14 +57,44 @@ export default function ContentRow({
       )}
       <List.Item.Meta
         title={
-          <Space style={{ width: "100%", justifyContent: "space-between" }}>
-            <Space size={6}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              width: "100%",
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                minWidth: 0,
+                flex: 1,
+              }}
+            >
               <MediumIcon medium={item.medium} />
               {isItemDirty(item.id) && <DirtyDot />}
-              <span>{item.title}</span>
-            </Space>
-            <StatusTag status={item.status} />
-          </Space>
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  minWidth: 0,
+                }}
+                title={item.title}
+              >
+                {item.title}
+              </span>
+            </div>
+            <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4 }}>
+              <StatusTag status={item.status} />
+              {actions}
+            </div>
+          </div>
         }
         description={
           <Space size={6} wrap>

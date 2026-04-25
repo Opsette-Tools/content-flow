@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Button, Card, Col, Empty, List, Row, Space, Statistic, Tag, Typography } from "antd";
+import { Button, Card, Col, Grid, List, Row, Space, Tag, Typography } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useContent } from "@/hooks/useContent";
@@ -9,15 +9,20 @@ import StatusTag from "@/components/StatusTag";
 import ProjectTag from "@/components/ProjectTag";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import PublishingHeatmap from "@/components/dashboard/PublishingHeatmap";
-import CadenceCard from "@/components/dashboard/CadenceCard";
+import CadenceListCard from "@/components/dashboard/CadenceListCard";
 import DistributionCard from "@/components/dashboard/DistributionCard";
 import GapStrip from "@/components/dashboard/GapStrip";
+import StatCard, { type StatTone } from "@/components/StatCard";
 import { useHeaderActions } from "@/layout/HeaderSlots";
+
+const { useBreakpoint } = Grid;
 
 export default function Dashboard() {
   const { items, refresh } = useContent();
   const { projects, refresh: refreshProjects } = useProjects();
   const { tags, refresh: refreshTags } = useTags();
+  const screens = useBreakpoint();
+  const isCompact = !screens.md;
   const [editorOpen, setEditorOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -60,8 +65,13 @@ export default function Dashboard() {
   };
 
   useHeaderActions(
-    <Button type="primary" icon={<PlusOutlined />} onClick={() => open(null)}>
-      New
+    <Button
+      type="primary"
+      icon={<PlusOutlined />}
+      onClick={() => open(null)}
+      aria-label="New content"
+    >
+      {!isCompact && "New"}
     </Button>,
   );
 
@@ -86,41 +96,43 @@ export default function Dashboard() {
     </List.Item>
   );
 
+  const statEntries: Array<{ label: string; value: number; tone: StatTone }> = [
+    { label: "Total", value: stats.total, tone: "neutral" },
+    { label: "Planned", value: stats.Planned, tone: "info" },
+    { label: "Drafting", value: stats.Drafting, tone: "warning" },
+    { label: "Ready", value: stats.Ready, tone: "ready" },
+    { label: "Published", value: stats.Published, tone: "success" },
+  ];
+
   return (
     <div className="app-page">
-      <Row gutter={[12, 12]} className="app-section">
-        <Col xs={12} sm={8} md={4}>
-          <Card><Statistic title="Total" value={stats.total} /></Card>
-        </Col>
-        <Col xs={12} sm={8} md={5}>
-          <Card><Statistic title="Planned" value={stats.Planned} /></Card>
-        </Col>
-        <Col xs={12} sm={8} md={5}>
-          <Card><Statistic title="Drafting" value={stats.Drafting} /></Card>
-        </Col>
-        <Col xs={12} sm={8} md={5}>
-          <Card><Statistic title="Ready" value={stats.Ready} /></Card>
-        </Col>
-        <Col xs={24} sm={8} md={5}>
-          <Card><Statistic title="Published" value={stats.Published} /></Card>
-        </Col>
-      </Row>
+      {isCompact ? (
+        <div className="stat-carousel app-section">
+          {statEntries.map((s) => (
+            <div key={s.label} className="stat-carousel-item">
+              <StatCard label={s.label} value={s.value} tone={s.tone} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Row gutter={[12, 12]} className="app-section">
+          {statEntries.map((s, idx) => (
+            <Col xs={12} sm={8} md={idx === 0 ? 4 : 5} key={s.label}>
+              <StatCard label={s.label} value={s.value} tone={s.tone} />
+            </Col>
+          ))}
+        </Row>
+      )}
 
       <GapStrip items={items} projects={projects} />
 
       <Row gutter={[16, 16]} className="app-section">
         {projectsWithCadence.length > 0 && (
-          <Col xs={24} md={projectsWithCadence.length > 1 ? 16 : 12}>
-            <Row gutter={[12, 12]}>
-              {projectsWithCadence.map((p) => (
-                <Col xs={24} sm={12} key={p.id}>
-                  <CadenceCard project={p} items={items} />
-                </Col>
-              ))}
-            </Row>
+          <Col xs={24} md={12}>
+            <CadenceListCard projects={projectsWithCadence} items={items} />
           </Col>
         )}
-        <Col xs={24} md={projectsWithCadence.length > 1 ? 8 : projectsWithCadence.length === 1 ? 12 : 24}>
+        <Col xs={24} md={projectsWithCadence.length > 0 ? 12 : 24}>
           <DistributionCard items={items} />
         </Col>
       </Row>
@@ -133,38 +145,58 @@ export default function Dashboard() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12}>
-          <Card title="Upcoming this week" size="small">
+          <Card
+            title="Upcoming this week"
+            size="small"
+            style={{ height: "100%" }}
+            styles={{ body: { minHeight: 220 } }}
+          >
             {upcoming.length ? (
               <List dataSource={upcoming} renderItem={(i) => renderItem(i)} />
             ) : (
-              <Empty description="Nothing scheduled this week" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              <Typography.Text type="secondary">Nothing scheduled this week</Typography.Text>
             )}
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card title={<span>Overdue {overdue.length > 0 && <Tag color="red">{overdue.length}</Tag>}</span>} size="small">
+          <Card
+            title={<span>Overdue {overdue.length > 0 && <Tag color="red">{overdue.length}</Tag>}</span>}
+            size="small"
+            style={{ height: "100%" }}
+            styles={{ body: { minHeight: 220 } }}
+          >
             {overdue.length ? (
               <List dataSource={overdue} renderItem={(i) => renderItem(i, true)} />
             ) : (
-              <Empty description="Nothing overdue" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              <Typography.Text type="secondary">Nothing overdue</Typography.Text>
             )}
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card title="Unscheduled ideas" size="small">
+          <Card
+            title="Unscheduled ideas"
+            size="small"
+            style={{ height: "100%" }}
+            styles={{ body: { minHeight: 220 } }}
+          >
             {unscheduled.length ? (
               <List dataSource={unscheduled} renderItem={(i) => renderItem(i)} />
             ) : (
-              <Empty description="No unscheduled items" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              <Typography.Text type="secondary">No unscheduled items</Typography.Text>
             )}
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card title="Recently updated" size="small">
+          <Card
+            title="Recently updated"
+            size="small"
+            style={{ height: "100%" }}
+            styles={{ body: { minHeight: 220 } }}
+          >
             {recent.length ? (
               <List dataSource={recent} renderItem={(i) => renderItem(i)} />
             ) : (
-              <Empty description="No content yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              <Typography.Text type="secondary">No content yet</Typography.Text>
             )}
           </Card>
         </Col>

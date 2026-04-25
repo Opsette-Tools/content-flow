@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Space } from "antd";
+import { Alert } from "antd";
 import dayjs from "dayjs";
 import type { ContentItem, Project } from "@/db/types";
 
@@ -11,8 +11,7 @@ interface Props {
 export default function GapStrip({ items, projects }: Props) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
-  const messages = useMemo(() => {
-    const msgs: { key: string; text: string }[] = [];
+  const { staleProjects, noUpcoming } = useMemo(() => {
     const today = dayjs().startOf("day");
     const weekEnd = today.add(7, "day");
 
@@ -23,13 +22,8 @@ export default function GapStrip({ items, projects }: Props) {
         dayjs(i.publishDate).isBefore(weekEnd) &&
         i.status !== "Archived",
     );
-    if (upcoming.length === 0) {
-      msgs.push({
-        key: "no-upcoming",
-        text: "No content scheduled for the next 7 days.",
-      });
-    }
 
+    const stale: { project: Project; days: number }[] = [];
     projects.forEach((p) => {
       if (!p.cadenceTarget) return;
       const lastPublished = items
@@ -40,38 +34,53 @@ export default function GapStrip({ items, projects }: Props) {
             i.publishDate,
         )
         .sort((a, b) => (a.publishDate! < b.publishDate! ? 1 : -1))[0];
-      const lastDate = lastPublished?.publishDate
-        ? dayjs(lastPublished.publishDate)
-        : null;
-      if (!lastDate || today.diff(lastDate, "day") >= 30) {
-        msgs.push({
-          key: `stale-${p.id}`,
-          text: `${p.name} hasn't published in ${
-            lastDate ? today.diff(lastDate, "day") + " days" : "a while"
-          }.`,
-        });
-      }
+      if (!lastPublished?.publishDate) return;
+      const days = today.diff(dayjs(lastPublished.publishDate), "day");
+      if (days >= 30) stale.push({ project: p, days });
     });
 
-    return msgs.filter((m) => !dismissed.has(m.key));
-  }, [items, projects, dismissed]);
+    const hasAnyContent = items.some((i) => i.status !== "Archived");
 
-  if (!messages.length) return null;
+    return {
+      staleProjects: stale,
+      noUpcoming: hasAnyContent && upcoming.length === 0,
+    };
+  }, [items, projects]);
+
+  const showStale = staleProjects.length > 0 && !dismissed.has("stale");
+  const showNoUpcoming = noUpcoming && !dismissed.has("no-upcoming");
+
+  if (!showStale && !showNoUpcoming) return null;
+
+  const staleText =
+    staleProjects.length === 1
+      ? `${staleProjects[0].project.name} hasn't published in ${staleProjects[0].days} days.`
+      : `${staleProjects.length} projects haven't published in 30+ days: ${staleProjects
+          .map((s) => s.project.name)
+          .join(", ")}.`;
 
   return (
-    <Space direction="vertical" style={{ width: "100%", marginBottom: 16 }} size={8}>
-      {messages.map((m) => (
+    <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+      {showStale && (
         <Alert
-          key={m.key}
-          type="warning"
+          type="info"
           showIcon
           closable
-          message={m.text}
-          onClose={() =>
-            setDismissed((prev) => new Set(prev).add(m.key))
-          }
+          message={staleText}
+          onClose={() => setDismissed((prev) => new Set(prev).add("stale"))}
+          style={{ background: "transparent" }}
         />
-      ))}
-    </Space>
+      )}
+      {showNoUpcoming && (
+        <Alert
+          type="info"
+          showIcon
+          closable
+          message="No content scheduled for the next 7 days."
+          onClose={() => setDismissed((prev) => new Set(prev).add("no-upcoming"))}
+          style={{ background: "transparent" }}
+        />
+      )}
+    </div>
   );
 }

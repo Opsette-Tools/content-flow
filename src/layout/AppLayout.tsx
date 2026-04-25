@@ -182,6 +182,12 @@ export default function AppLayout() {
             width={220}
             breakpoint="lg"
             theme={dark ? "dark" : "light"}
+            style={{
+              boxShadow: dark
+                ? "2px 0 8px rgba(0, 0, 0, 0.35)"
+                : "2px 0 8px rgba(15, 23, 42, 0.08)",
+              zIndex: 10,
+            }}
           >
             {siderHeader}
             {sidebarBody}

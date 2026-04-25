@@ -4,6 +4,7 @@ import {
   Card,
   Col,
   Empty,
+  Grid,
   Popconfirm,
   Row,
   Space,
@@ -19,11 +20,15 @@ import { useProjects } from "@/hooks/useProjects";
 import ProjectEditModal from "@/components/ProjectEditModal";
 import { useHeaderActions } from "@/layout/HeaderSlots";
 
+const { useBreakpoint } = Grid;
+
 export default function Projects() {
   const { projects, refresh } = useProjects();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const navigate = useNavigate();
+  const screens = useBreakpoint();
+  const isCompact = !screens.md;
 
   const openNew = () => {
     setEditing(null);
@@ -42,8 +47,8 @@ export default function Projects() {
   };
 
   useHeaderActions(
-    <Button type="primary" icon={<PlusOutlined />} onClick={openNew}>
-      New
+    <Button type="primary" icon={<PlusOutlined />} onClick={openNew} aria-label="New project">
+      {!isCompact && "New"}
     </Button>,
   );
 

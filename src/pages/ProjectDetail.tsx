@@ -2,26 +2,33 @@ import { useMemo, useState } from "react";
 import {
   Button,
   Card,
-  Col,
   DatePicker,
+  Dropdown,
   Empty,
   Grid,
-  Input,
   List,
+  Modal,
   Result,
-  Row,
   Select,
   Space,
   Table,
   Tag,
   Typography,
+  message,
 } from "antd";
-import { EditOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  CopyOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  MoreOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
 import { useTags } from "@/hooks/useTags";
+import { contentRepo } from "@/db";
 import {
   CONTENT_STATUSES,
   FUNNEL_COLORS,
@@ -39,6 +46,7 @@ import ProjectEditModal from "@/components/ProjectEditModal";
 import StatusTag from "@/components/StatusTag";
 import MediumIcon from "@/components/MediumIcon";
 import TagChips from "@/components/TagChips";
+import FilterSheet, { FilterField, type FilterChip } from "@/components/FilterSheet";
 import { isItemDirty } from "@/lib/dirty";
 import CadenceCard from "@/components/dashboard/CadenceCard";
 import { filterContent } from "@/utils/filterContent";
@@ -54,7 +62,7 @@ export default function ProjectDetail() {
   const { items, refresh: refreshItems } = useContent();
   const { tags } = useTags();
   const screens = useBreakpoint();
-  const isMobile = !screens.md;
+  const isMobile = !screens.lg;
 
   const project = useMemo(() => projects.find((p) => p.id === id) ?? null, [projects, id]);
 
@@ -87,6 +95,94 @@ export default function ProjectDetail() {
     [items, id, search, statusFilter, mediumFilter, funnelFilter, tagFilter, dateRange, tagsMap],
   );
 
+  const openEditor = (itemId: string | null) => {
+    setEditId(itemId);
+    setEditorOpen(true);
+  };
+
+  const handleChanged = () => {
+    refreshItems();
+  };
+
+  useHeaderActions(
+    project ? (
+      <Space size={isMobile ? 4 : 8}>
+        <Button
+          icon={<EditOutlined />}
+          onClick={() => setEditProjectOpen(true)}
+          aria-label="Edit project"
+        >
+          {!isMobile && "Edit project"}
+        </Button>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => openEditor(null)}
+          aria-label="New content"
+        >
+          {!isMobile && "New"}
+        </Button>
+      </Space>
+    ) : null,
+  );
+
+  const handleQuickStatus = async (itemId: string, status: ContentStatus) => {
+    await contentRepo.update(itemId, { status });
+    message.success("Status updated");
+    refreshItems();
+  };
+
+  const handleDuplicate = async (itemId: string) => {
+    await contentRepo.duplicate(itemId);
+    refreshItems();
+  };
+
+  const handleDelete = (item: ContentItem) => {
+    Modal.confirm({
+      title: "Delete this item?",
+      content: (
+        <span>
+          <strong>{item.title}</strong> will be removed. This can't be undone.
+        </span>
+      ),
+      okText: "Delete",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        await contentRepo.remove(item.id);
+        message.success("Deleted");
+        refreshItems();
+      },
+    });
+  };
+
+  const rowActions = (item: ContentItem) => {
+    const stop = <T,>(fn: (arg: T) => void) => (info: { domEvent: React.MouseEvent | React.KeyboardEvent }) => {
+      info.domEvent.stopPropagation();
+      fn(undefined as unknown as T);
+    };
+    return (
+      <Dropdown
+        menu={{
+          items: [
+            { key: "edit", icon: <EditOutlined />, label: "Edit", onClick: stop(() => openEditor(item.id)) },
+            { key: "dup", icon: <CopyOutlined />, label: "Duplicate", onClick: stop(() => handleDuplicate(item.id)) },
+            { type: "divider" },
+            ...CONTENT_STATUSES.map((s) => ({
+              key: `s-${s}`,
+              label: `Set: ${s}`,
+              onClick: stop(() => handleQuickStatus(item.id, s)),
+            })),
+            { type: "divider" },
+            { key: "del", icon: <DeleteOutlined />, danger: true, label: "Delete", onClick: stop(() => handleDelete(item)) },
+          ],
+        }}
+        trigger={["click"]}
+      >
+        <Button type="text" icon={<MoreOutlined />} onClick={(e) => e.stopPropagation()} />
+      </Dropdown>
+    );
+  };
+
   if (!project) {
     return (
       <div className="app-page">
@@ -104,46 +200,34 @@ export default function ProjectDetail() {
     );
   }
 
-  const openEditor = (itemId: string | null) => {
-    setEditId(itemId);
-    setEditorOpen(true);
-  };
-
-  const handleChanged = () => {
-    refreshItems();
-  };
-
-  useHeaderActions(
-    project ? (
-      <Space>
-        <Button icon={<EditOutlined />} onClick={() => setEditProjectOpen(true)}>
-          Edit project
-        </Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)}>
-          New
-        </Button>
-      </Space>
-    ) : null,
-  );
-
   const desktopTable = (
     <Table
       rowKey="id"
       dataSource={filtered}
       pagination={{ pageSize: 20, hideOnSinglePage: true }}
+      scroll={{ x: 1040 }}
+      tableLayout="fixed"
       onRow={(r) => ({ onClick: () => openEditor(r.id), style: { cursor: "pointer" } })}
       columns={[
         {
           title: "Title",
           dataIndex: "title",
+          width: 340,
+          ellipsis: { showTitle: true },
           render: (t: string, r: ContentItem) => (
-            <Space direction="vertical" size={0}>
-              <Space size={6}>
+            <Space direction="vertical" size={0} style={{ width: "100%", minWidth: 0 }}>
+              <Space size={6} style={{ width: "100%", minWidth: 0 }}>
                 {isItemDirty(r.id) && <DirtyDot />}
-                <Typography.Text strong>{t}</Typography.Text>
+                <Typography.Text strong ellipsis={{ tooltip: t }} style={{ flex: 1, minWidth: 0 }}>
+                  {t}
+                </Typography.Text>
               </Space>
               {r.slugOrRoute && (
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                <Typography.Text
+                  type="secondary"
+                  ellipsis={{ tooltip: r.slugOrRoute }}
+                  style={{ fontSize: 12, width: "100%" }}
+                >
                   {r.slugOrRoute}
                 </Typography.Text>
               )}
@@ -153,6 +237,8 @@ export default function ProjectDetail() {
         {
           title: "Medium",
           dataIndex: "medium",
+          width: 130,
+          ellipsis: true,
           render: (m: Medium) => (
             <Space size={4}>
               <MediumIcon medium={m} />
@@ -163,6 +249,8 @@ export default function ProjectDetail() {
         {
           title: "Funnel",
           dataIndex: "funnelStage",
+          width: 110,
+          ellipsis: true,
           render: (s: FunnelStage) =>
             s && s !== "None" ? (
               <Tag color={FUNNEL_COLORS[s]}>{s}</Tag>
@@ -173,11 +261,14 @@ export default function ProjectDetail() {
         {
           title: "Tags",
           dataIndex: "tags",
+          width: 180,
+          ellipsis: true,
           render: (ids: string[]) => <TagChips tagIds={ids ?? []} tagsMap={tagsMap} max={3} />,
         },
         {
           title: "Publish",
           dataIndex: "publishDate",
+          width: 130,
           sorter: (a: ContentItem, b: ContentItem) =>
             (a.publishDate || "").localeCompare(b.publishDate || ""),
           render: (d: string | null) =>
@@ -186,8 +277,10 @@ export default function ProjectDetail() {
         {
           title: "Status",
           dataIndex: "status",
+          width: 110,
           render: (s: ContentStatus) => <StatusTag status={s} />,
         },
+        { title: "", key: "actions", width: 56, fixed: "right", render: (_: unknown, r: ContentItem) => rowActions(r) },
       ]}
     />
   );
@@ -202,6 +295,7 @@ export default function ProjectDetail() {
           projectsMap={projMap}
           tagsMap={tagsMap}
           onClick={(it) => openEditor(it.id)}
+          actions={rowActions(i)}
         />
       )}
     />
@@ -224,67 +318,123 @@ export default function ProjectDetail() {
         </Card>
       )}
 
-      <Card size="small" className="app-section">
-        <Row gutter={[8, 8]}>
-          <Col xs={24} md={6}>
-            <Input.Search
-              allowClear
-              placeholder="Search title, keyword, slug, tags"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <Select
-              allowClear
-              placeholder="Status"
-              value={statusFilter ?? undefined}
-              onChange={(v) => setStatusFilter((v as ContentStatus) ?? null)}
-              style={{ width: "100%" }}
-              options={CONTENT_STATUSES.map((s) => ({ label: s, value: s }))}
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <Select
-              allowClear
-              placeholder="Medium"
-              value={mediumFilter ?? undefined}
-              onChange={(v) => setMediumFilter((v as Medium) ?? null)}
-              style={{ width: "100%" }}
-              options={MEDIUMS.map((m) => ({ label: m, value: m }))}
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <Select
-              allowClear
-              placeholder="Funnel"
-              value={funnelFilter ?? undefined}
-              onChange={(v) => setFunnelFilter((v as FunnelStage) ?? null)}
-              style={{ width: "100%" }}
-              options={FUNNEL_STAGES.map((s) => ({ label: s, value: s }))}
-            />
-          </Col>
-          <Col xs={12} md={3}>
-            <Select
-              allowClear
-              mode="multiple"
-              maxTagCount={1}
-              placeholder="Tags"
-              value={tagFilter}
-              onChange={(v) => setTagFilter(v)}
-              style={{ width: "100%" }}
-              options={tags.map((t) => ({ label: t.name, value: t.id }))}
-            />
-          </Col>
-          <Col xs={24} md={3}>
-            <RangePicker
-              style={{ width: "100%" }}
-              value={dateRange as never}
-              onChange={(v) => setDateRange(v as never)}
-            />
-          </Col>
-        </Row>
-      </Card>
+      {(() => {
+        const tagNames = tagFilter
+          .map((id) => tags.find((t) => t.id === id)?.name)
+          .filter((n): n is string => !!n);
+
+        const activeChips: FilterChip[] = [];
+        if (statusFilter) {
+          activeChips.push({
+            key: "status",
+            label: `Status: ${statusFilter}`,
+            onRemove: () => setStatusFilter(null),
+          });
+        }
+        if (mediumFilter) {
+          activeChips.push({
+            key: "medium",
+            label: `Medium: ${mediumFilter}`,
+            onRemove: () => setMediumFilter(null),
+          });
+        }
+        if (funnelFilter) {
+          activeChips.push({
+            key: "funnel",
+            label: `Funnel: ${funnelFilter}`,
+            onRemove: () => setFunnelFilter(null),
+          });
+        }
+        tagNames.forEach((name, idx) => {
+          activeChips.push({
+            key: `tag-${tagFilter[idx]}`,
+            label: `Tag: ${name}`,
+            onRemove: () => setTagFilter((prev) => prev.filter((id) => id !== tagFilter[idx])),
+          });
+        });
+        if (dateRange) {
+          activeChips.push({
+            key: "date",
+            label: `${dateRange[0].format("MMM D")} – ${dateRange[1].format("MMM D")}`,
+            onRemove: () => setDateRange(null),
+          });
+        }
+
+        const clearAllFilters = () => {
+          setStatusFilter(null);
+          setMediumFilter(null);
+          setFunnelFilter(null);
+          setTagFilter([]);
+          setDateRange(null);
+        };
+
+        const filterControls = (
+          <>
+            <FilterField label="Status">
+              <Select
+                allowClear
+                placeholder="Any status"
+                value={statusFilter ?? undefined}
+                onChange={(v) => setStatusFilter((v as ContentStatus) ?? null)}
+                style={{ width: "100%" }}
+                options={CONTENT_STATUSES.map((s) => ({ label: s, value: s }))}
+              />
+            </FilterField>
+            <FilterField label="Medium">
+              <Select
+                allowClear
+                placeholder="Any medium"
+                value={mediumFilter ?? undefined}
+                onChange={(v) => setMediumFilter((v as Medium) ?? null)}
+                style={{ width: "100%" }}
+                options={MEDIUMS.map((m) => ({ label: m, value: m }))}
+              />
+            </FilterField>
+            <FilterField label="Funnel stage">
+              <Select
+                allowClear
+                placeholder="Any stage"
+                value={funnelFilter ?? undefined}
+                onChange={(v) => setFunnelFilter((v as FunnelStage) ?? null)}
+                style={{ width: "100%" }}
+                options={FUNNEL_STAGES.map((s) => ({ label: s, value: s }))}
+              />
+            </FilterField>
+            <FilterField label="Tags">
+              <Select
+                allowClear
+                mode="multiple"
+                placeholder="Any tags"
+                value={tagFilter}
+                onChange={(v) => setTagFilter(v)}
+                style={{ width: "100%" }}
+                options={tags.map((t) => ({ label: t.name, value: t.id }))}
+              />
+            </FilterField>
+            <FilterField label="Publish date">
+              <RangePicker
+                style={{ width: "100%" }}
+                value={dateRange as never}
+                onChange={(v) => setDateRange(v as never)}
+              />
+            </FilterField>
+          </>
+        );
+
+        return (
+          <Card size="small" className="app-section">
+            <FilterSheet
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Search title, keyword, slug, tags"
+              activeChips={activeChips}
+              onClearAll={clearAllFilters}
+            >
+              {filterControls}
+            </FilterSheet>
+          </Card>
+        );
+      })()}
 
       <Card size="small">
         {filtered.length ? (

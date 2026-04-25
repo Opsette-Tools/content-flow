@@ -154,6 +154,7 @@ export default function CalendarView() {
     <Button
       type="primary"
       icon={<PlusOutlined />}
+      aria-label="New content"
       onClick={() => {
         setSelectedDate(null);
         setDefaultDate(null);
@@ -161,7 +162,7 @@ export default function CalendarView() {
         setEditorOpen(true);
       }}
     >
-      New
+      {!isMobile && "New"}
     </Button>,
   );
 

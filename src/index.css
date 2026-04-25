@@ -35,7 +35,7 @@ body {
 
 /* Layout helpers */
 .app-page {
-  padding: 16px;
+  padding: 10px;
   max-width: 1280px;
   margin: 0 auto;
   width: 100%;
@@ -48,7 +48,13 @@ body {
 }
 
 .app-section {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+}
+
+@media (min-width: 768px) {
+  .app-section {
+    margin-bottom: 16px;
+  }
 }
 
 /* Calendar cell badge stack */
@@ -85,4 +91,30 @@ body {
 .calendar-day-droppable--over {
   background: rgba(22, 119, 255, 0.08);
   border-radius: 4px;
+}
+
+/* Stat-card horizontal carousel (mobile dashboard) */
+.stat-carousel {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  /* Bleed to edges so the next card peeks; counter the page padding */
+  margin-left: -10px;
+  margin-right: -10px;
+  padding: 4px 10px 10px;
+  scrollbar-width: none;
+}
+.stat-carousel::-webkit-scrollbar {
+  display: none;
+}
+.stat-carousel-item {
+  flex: 0 0 42%;
+  scroll-snap-align: start;
+  min-width: 130px;
+}
+.stat-carousel-item:last-child {
+  /* a touch of trailing space so the last card can fully snap */
+  margin-right: 4px;
 }
