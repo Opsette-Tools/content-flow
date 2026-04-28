@@ -6,6 +6,7 @@ import {
   MenuOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
+import { ShareAppButton } from "@/components/opsette-share";
 
 const { Header: AntHeader } = Layout;
 
@@ -115,6 +116,7 @@ export default function AppHeader({
             />
           </div>
         )}
+        <ShareAppButton size={32} />
         {headerActions}
       </div>
     </AntHeader>
