@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Button, Card, Col, Grid, List, Row, Space, Tag, Typography } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { Button, Card, Col, Grid, List, Row, Space, Tag, Tooltip, Typography } from "antd";
+import { ExportOutlined, PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useContent } from "@/hooks/useContent";
 import { useProjects } from "@/hooks/useProjects";
@@ -80,7 +80,25 @@ export default function Dashboard() {
       key={i.id}
       onClick={() => open(i.id)}
       style={{ cursor: "pointer" }}
-      actions={[<StatusTag key="s" status={i.status} />]}
+      actions={[
+        ...(i.publishedUrl
+          ? [
+              <Tooltip key="pub" title="Open published page">
+                <a
+                  href={i.publishedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Open published page"
+                  style={{ color: "inherit", opacity: 0.6, display: "inline-flex" }}
+                >
+                  <ExportOutlined />
+                </a>
+              </Tooltip>,
+            ]
+          : []),
+        <StatusTag key="s" status={i.status} />,
+      ]}
     >
       <List.Item.Meta
         title={i.title}

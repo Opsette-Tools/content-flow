@@ -25,6 +25,9 @@ export function contentToCsv(
     "Secondary Keywords",
     "Slug/Route",
     "Publish Date",
+    "Target Word Count",
+    "Draft URL",
+    "Published URL",
     "Brief",
   ];
   const rows = items.map((i) =>
@@ -39,6 +42,9 @@ export function contentToCsv(
       i.secondaryKeywords.join("; "),
       i.slugOrRoute,
       i.publishDate ?? "",
+      i.targetWordCount ?? "",
+      i.draftUrl ?? "",
+      i.publishedUrl ?? "",
       i.briefNotes,
     ]
       .map(escape)

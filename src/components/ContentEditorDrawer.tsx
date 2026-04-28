@@ -2,17 +2,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Button,
+  Collapse,
   DatePicker,
+  Divider,
   Drawer,
   Form,
   Input,
+  InputNumber,
   Popconfirm,
   Select,
   Space,
   Typography,
   message,
 } from "antd";
-import { CopyOutlined, DeleteOutlined, SaveOutlined } from "@ant-design/icons";
+import {
+  CopyOutlined,
+  DeleteOutlined,
+  DownCircleOutlined,
+  ExportOutlined,
+  SaveOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 import { contentRepo, settingsRepo, tagsRepo } from "@/db";
 import { useSettings } from "@/hooks/useSettings";
@@ -58,6 +67,9 @@ interface DraftState {
   publishDate: string | null;
   status: ContentStatus;
   briefNotes: string;
+  targetWordCount: number | null;
+  draftUrl: string | null;
+  publishedUrl: string | null;
   checklist: Record<string, boolean>;
 }
 
@@ -88,6 +100,9 @@ function itemToDraft(item: ContentItem): DraftState {
     publishDate: item.publishDate,
     status: item.status,
     briefNotes: item.briefNotes,
+    targetWordCount: item.targetWordCount ?? null,
+    draftUrl: item.draftUrl ?? null,
+    publishedUrl: item.publishedUrl ?? null,
     checklist: { ...item.checklist },
   };
 }
@@ -106,12 +121,33 @@ function blankDraft(defaultProjectId: string | null, defaultDate: string | null)
     publishDate: defaultDate,
     status: "Idea",
     briefNotes: "",
+    targetWordCount: null,
+    draftUrl: null,
+    publishedUrl: null,
     checklist: emptyChecklist(),
   };
 }
 
 function draftsEqual(a: DraftState, b: DraftState): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function readingMinutes(words: number): number {
+  if (words <= 0) return 0;
+  return Math.max(1, Math.round(words / 200));
+}
+
+function trimToNull(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim();
+  return trimmed ? trimmed : null;
+}
+
+// Soft URL check — accepts http(s), notion://, file paths, etc. Only used to
+// flag obviously-broken paste, never to block save.
+function looksLikeUrl(v: string | null): boolean {
+  if (!v) return true; // empty is fine
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(v) || v.startsWith("/");
 }
 
 export default function ContentEditorDrawer({
@@ -135,6 +171,83 @@ export default function ContentEditorDrawer({
   const draftWriteRef = useRef<number | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const { refresh: refreshSettings } = useSettings();
+
+  // Drawer width (desktop only). Persisted across sessions so re-opening the
+  // editor keeps your preferred width. Min 420 (form fields stop wrapping
+  // weirdly), max 80% of viewport.
+  const [drawerWidth, setDrawerWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return 520;
+    const stored = Number(localStorage.getItem("content-flow.editorDrawerWidth.v1"));
+    if (Number.isFinite(stored) && stored >= 480) return stored;
+    return 520;
+  });
+  const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const onResizeStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragStateRef.current = { startX: e.clientX, startWidth: drawerWidth };
+    const onMove = (ev: MouseEvent) => {
+      const s = dragStateRef.current;
+      if (!s) return;
+      // Drag handle is on the left edge, so dragging left grows the drawer.
+      const next = s.startWidth + (s.startX - ev.clientX);
+      const max = Math.round(window.innerWidth * 0.8);
+      const clamped = Math.max(480, Math.min(max, next));
+      setDrawerWidth(clamped);
+    };
+    const onUp = () => {
+      dragStateRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      try {
+        localStorage.setItem(
+          "content-flow.editorDrawerWidth.v1",
+          String(drawerWidthRef.current),
+        );
+      } catch {
+        // localStorage quota / privacy mode — width just won't persist
+      }
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  // Keep a ref of the latest width so the dragend handler doesn't see a stale
+  // closure value when persisting.
+  const drawerWidthRef = useRef(drawerWidth);
+  useEffect(() => {
+    drawerWidthRef.current = drawerWidth;
+  }, [drawerWidth]);
+
+  // Section open/close state for the collapsible groups. "basics" is always
+  // shown; the others remember their last-open state across sessions.
+  const [openSections, setOpenSections] = useState<string[]>(() => {
+    if (typeof window === "undefined") return ["basics", "classification"];
+    try {
+      const raw = localStorage.getItem("content-flow.editorSections.v1");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.filter((v) => typeof v === "string");
+      }
+    } catch {
+      // ignore
+    }
+    return ["basics", "classification"];
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "content-flow.editorSections.v1",
+        JSON.stringify(openSections),
+      );
+    } catch {
+      // ignore
+    }
+  }, [openSections]);
 
   const activeId = itemId ?? tentativeId;
   const isNew = !itemId;
@@ -201,6 +314,9 @@ export default function ContentEditorDrawer({
       secondaryKeywords: draft.secondaryKeywords,
       publishDate: draft.publishDate ? dayjs(draft.publishDate) : null,
       briefNotes: draft.briefNotes,
+      targetWordCount: draft.targetWordCount,
+      draftUrl: draft.draftUrl ?? "",
+      publishedUrl: draft.publishedUrl ?? "",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft ? activeId : null]);
@@ -253,6 +369,12 @@ export default function ContentEditorDrawer({
       secondaryKeywords: (all.secondaryKeywords as string[]) ?? [],
       publishDate: publish ? publish.format("YYYY-MM-DD") : null,
       briefNotes: (all.briefNotes as string) ?? "",
+      targetWordCount:
+        typeof all.targetWordCount === "number" && all.targetWordCount > 0
+          ? Math.round(all.targetWordCount)
+          : null,
+      draftUrl: trimToNull(all.draftUrl),
+      publishedUrl: trimToNull(all.publishedUrl),
     });
   };
 
@@ -308,6 +430,9 @@ export default function ContentEditorDrawer({
           publishDate: draft.publishDate,
           status: draft.status,
           briefNotes: draft.briefNotes,
+          targetWordCount: draft.targetWordCount,
+          draftUrl: draft.draftUrl,
+          publishedUrl: draft.publishedUrl,
           checklist: draft.checklist,
         });
       } else {
@@ -328,6 +453,9 @@ export default function ContentEditorDrawer({
           publishDate: draft.publishDate,
           status: draft.status,
           briefNotes: draft.briefNotes,
+          targetWordCount: draft.targetWordCount,
+          draftUrl: draft.draftUrl,
+          publishedUrl: draft.publishedUrl,
           checklist: draft.checklist,
         });
         saved = created;
@@ -369,6 +497,8 @@ export default function ContentEditorDrawer({
   };
 
   const checklistDone = Object.values(draft?.checklist ?? {}).filter(Boolean).length;
+  const targetWordCount = draft?.targetWordCount ?? null;
+  const targetReadMin = readingMinutes(targetWordCount ?? 0);
 
   return (
     <Drawer
@@ -376,9 +506,10 @@ export default function ContentEditorDrawer({
       onClose={onClose}
       title={persisted ? "Edit content" : "New content"}
       placement={isMobile ? "bottom" : "right"}
-      width={isMobile ? "100%" : 520}
+      width={isMobile ? "100%" : drawerWidth}
       height={isMobile ? "92%" : undefined}
       destroyOnClose
+      classNames={{ body: "cf-editor-drawer-body" }}
       extra={
         <Space>
           {persisted && (
@@ -413,6 +544,15 @@ export default function ContentEditorDrawer({
         </div>
       }
     >
+      {!isMobile && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize editor"
+          className="cf-drawer-resize-handle"
+          onMouseDown={onResizeStart}
+        />
+      )}
       {isDirty && (
         <Alert
           type="warning"
@@ -433,70 +573,206 @@ export default function ContentEditorDrawer({
           tags: [],
         }}
       >
+        {/* Basics — always visible at the top, no Collapse wrapper. The
+            common-case fields the user touches every time. */}
         <Form.Item name="title" label="Title" rules={[{ required: true, message: "Title is required" }]}>
           <Input placeholder="e.g. How to plan content" />
         </Form.Item>
-        <Form.Item name="projectId" label="Project">
-          <Select
-            allowClear
-            placeholder="Select a project"
-            options={projects.map((p) => ({ label: p.name, value: p.id }))}
-          />
-        </Form.Item>
-        <Form.Item name="slugOrRoute" label="Slug / Route">
-          <Input placeholder="/blog/my-post" />
-        </Form.Item>
-        <Form.Item name="medium" label="Medium">
-          <Select
-            options={MEDIUMS.map((m) => ({
-              value: m,
-              label: (
-                <Space size={6}>
-                  <MediumIcon medium={m} />
-                  <span>{m}</span>
-                </Space>
-              ),
-            }))}
-          />
-        </Form.Item>
-        <Form.Item name="funnelStage" label="Funnel stage">
-          <Select options={FUNNEL_STAGES.map((s) => ({ label: s, value: s }))} />
-        </Form.Item>
-        <Form.Item name="tags" label="Tags">
-          <Select
-            mode="tags"
-            placeholder="Add tags (type to create)"
-            tokenSeparators={[","]}
-            onChange={handleTagsChange}
-            options={localTags.map((t) => ({ label: t.name, value: t.id }))}
-            optionFilterProp="label"
-          />
-        </Form.Item>
-        <Form.Item name="status" label="Status">
-          <Select options={CONTENT_STATUSES.map((s) => ({ label: s, value: s }))} />
-        </Form.Item>
-        <Form.Item name="primaryKeyword" label="Primary keyword">
-          <Input placeholder="primary keyword" />
-        </Form.Item>
-        <Form.Item name="secondaryKeywords" label="Secondary keywords">
-          <Select mode="tags" placeholder="Type and press enter" tokenSeparators={[","]} />
-        </Form.Item>
-        <Form.Item name="publishDate" label="Publish date">
-          <DatePicker style={{ width: "100%" }} />
-        </Form.Item>
-        <Form.Item name="briefNotes" label="Brief / notes">
-          <Input.TextArea rows={4} placeholder="Outline, angle, references…" />
-        </Form.Item>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Form.Item name="projectId" label="Project">
+            <Select
+              allowClear
+              placeholder="Select a project"
+              options={projects.map((p) => ({ label: p.name, value: p.id }))}
+            />
+          </Form.Item>
+          <Form.Item name="status" label="Status">
+            <Select options={CONTENT_STATUSES.map((s) => ({ label: s, value: s }))} />
+          </Form.Item>
+          <Form.Item name="publishDate" label="Publish date">
+            <DatePicker style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item
+            name="targetWordCount"
+            label={
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span>Target word count</span>
+                {targetReadMin > 0 && (
+                  <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 12 }}>
+                    ~{targetReadMin} min read
+                  </Typography.Text>
+                )}
+              </span>
+            }
+          >
+            <InputNumber
+              min={0}
+              step={100}
+              placeholder="e.g. 1500"
+              style={{ width: "100%" }}
+            />
+          </Form.Item>
+        </div>
 
-        <Typography.Title level={5} style={{ marginTop: 8 }}>
-          Checklist{" "}
+        <Collapse
+          ghost
+          activeKey={openSections}
+          onChange={(keys) =>
+            setOpenSections(Array.isArray(keys) ? keys : [keys].filter(Boolean) as string[])
+          }
+          expandIcon={({ isActive }) => (
+            <DownCircleOutlined
+              rotate={isActive ? 0 : -90}
+              style={{ fontSize: 16 }}
+            />
+          )}
+          items={[
+            {
+              key: "classification",
+              label: <span className="cf-section-title">Classification</span>,
+              children: (
+                <>
+                  <Form.Item name="medium" label="Medium">
+                    <Select
+                      options={MEDIUMS.map((m) => ({
+                        value: m,
+                        label: (
+                          <Space size={6}>
+                            <MediumIcon medium={m} />
+                            <span>{m}</span>
+                          </Space>
+                        ),
+                      }))}
+                    />
+                  </Form.Item>
+                  <Form.Item name="funnelStage" label="Funnel stage">
+                    <Select options={FUNNEL_STAGES.map((s) => ({ label: s, value: s }))} />
+                  </Form.Item>
+                  <Form.Item name="tags" label="Tags">
+                    <Select
+                      mode="tags"
+                      placeholder="Add tags (type to create)"
+                      tokenSeparators={[","]}
+                      onChange={handleTagsChange}
+                      options={localTags.map((t) => ({ label: t.name, value: t.id }))}
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                </>
+              ),
+            },
+            {
+              key: "seo",
+              label: <span className="cf-section-title">SEO</span>,
+              children: (
+                <>
+                  <Form.Item name="slugOrRoute" label="Slug / Route">
+                    <Input placeholder="/blog/my-post" />
+                  </Form.Item>
+                  <Form.Item name="primaryKeyword" label="Primary keyword">
+                    <Input placeholder="primary keyword" />
+                  </Form.Item>
+                  <Form.Item name="secondaryKeywords" label="Secondary keywords">
+                    <Select mode="tags" placeholder="Type and press enter" tokenSeparators={[","]} />
+                  </Form.Item>
+                </>
+              ),
+            },
+            {
+              key: "brief",
+              label: <span className="cf-section-title">Brief / notes</span>,
+              children: (
+                <Form.Item name="briefNotes" noStyle>
+                  <Input.TextArea rows={5} placeholder="Outline, angle, references…" />
+                </Form.Item>
+              ),
+            },
+            {
+              key: "links",
+              label: <span className="cf-section-title">Links</span>,
+              children: (
+                <>
+                  <Form.Item
+                    name="draftUrl"
+                    label="Draft URL"
+                    tooltip="Where the draft is being written — Google Doc, Notion, etc."
+                    validateStatus={
+                      draft?.draftUrl && !looksLikeUrl(draft.draftUrl) ? "warning" : undefined
+                    }
+                    help={
+                      draft?.draftUrl && !looksLikeUrl(draft.draftUrl)
+                        ? "Doesn't look like a URL — saved anyway."
+                        : undefined
+                    }
+                  >
+                    <Input
+                      placeholder="https://docs.google.com/…"
+                      suffix={
+                        draft?.draftUrl ? (
+                          <a
+                            href={draft.draftUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Open draft URL"
+                            style={{ color: "inherit", display: "inline-flex" }}
+                          >
+                            <ExportOutlined />
+                          </a>
+                        ) : null
+                      }
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="publishedUrl"
+                    label="Published URL"
+                    tooltip="The live page once it's published."
+                    validateStatus={
+                      draft?.publishedUrl && !looksLikeUrl(draft.publishedUrl)
+                        ? "warning"
+                        : undefined
+                    }
+                    help={
+                      draft?.publishedUrl && !looksLikeUrl(draft.publishedUrl)
+                        ? "Doesn't look like a URL — saved anyway."
+                        : undefined
+                    }
+                  >
+                    <Input
+                      placeholder="https://example.com/blog/post"
+                      suffix={
+                        draft?.publishedUrl ? (
+                          <a
+                            href={draft.publishedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Open published URL"
+                            style={{ color: "inherit", display: "inline-flex" }}
+                          >
+                            <ExportOutlined />
+                          </a>
+                        ) : null
+                      }
+                    />
+                  </Form.Item>
+                </>
+              ),
+            },
+          ]}
+        />
+
+        <Divider style={{ margin: "8px 0 12px" }} />
+        <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="cf-section-title">Checklist</span>
           {checklistDone > 0 && (
-            <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 13 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 13 }}>
               ({checklistDone}/{DEFAULT_CHECKLIST.length})
             </Typography.Text>
           )}
-        </Typography.Title>
-        <ContentChecklist value={draft?.checklist ?? emptyChecklist()} onChange={onChecklistChange} />
+        </div>
+        <ContentChecklist
+          value={draft?.checklist ?? emptyChecklist()}
+          onChange={onChecklistChange}
+        />
       </Form>
     </Drawer>
   );

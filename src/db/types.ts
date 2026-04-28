@@ -176,6 +176,15 @@ export interface ContentItem {
   publishDate: string | null; // ISO date (YYYY-MM-DD) or null
   status: ContentStatus;
   briefNotes: string;
+  // Planned length for the piece. Null when the user hasn't set a target.
+  // Existing items pre-feature also read as null (missing key on the wire).
+  targetWordCount: number | null;
+  // Where the draft is written (Google Doc, Notion, Opsette doc, etc).
+  // Optional. Pre-feature items read as null.
+  draftUrl: string | null;
+  // The live, published URL. Set once the post is live. Pre-feature items
+  // read as null.
+  publishedUrl: string | null;
   checklist: Record<string, boolean>;
   createdAt: number;
   updatedAt: number;

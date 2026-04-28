@@ -22,17 +22,24 @@ export default function ContentChecklist({ value, onChange }: Props) {
         </Typography.Text>
       </Space>
       <Progress percent={pct} showInfo={false} size="small" />
-      <Space direction="vertical" size={4} style={{ width: "100%" }}>
-        {labels.map((label) => (
-          <Checkbox
-            key={label}
-            checked={!!value[label]}
-            onChange={(e) => onChange({ ...value, [label]: e.target.checked })}
-          >
-            {label}
-          </Checkbox>
-        ))}
-      </Space>
+      <div className="cf-checklist">
+        {labels.map((label) => {
+          const checked = !!value[label];
+          return (
+            <label
+              key={label}
+              className={`cf-checklist-row${checked ? " is-checked" : ""}`}
+            >
+              <Checkbox
+                checked={checked}
+                onChange={(e) => onChange({ ...value, [label]: e.target.checked })}
+              >
+                {label}
+              </Checkbox>
+            </label>
+          );
+        })}
+      </div>
     </Space>
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Checkbox, List, Space, Tag } from "antd";
+import { Checkbox, List, Space, Tag, Tooltip } from "antd";
+import { ExportOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { FUNNEL_COLORS, type ContentItem, type Project, type Tag as TagType } from "@/db/types";
 import { isItemDirty } from "@/lib/dirty";
@@ -91,6 +92,26 @@ export default function ContentRow({
               </span>
             </div>
             <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4 }}>
+              {item.publishedUrl && (
+                <Tooltip title="Open published page">
+                  <a
+                    href={item.publishedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="Open published page"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      color: "inherit",
+                      opacity: 0.6,
+                      padding: "0 4px",
+                    }}
+                  >
+                    <ExportOutlined />
+                  </a>
+                </Tooltip>
+              )}
               <StatusTag status={item.status} />
               {actions}
             </div>
