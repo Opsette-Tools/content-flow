@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { opsetteShareConfig } from "./config";
 import "./share.css";
@@ -55,8 +56,11 @@ const ShareAppModal: React.FC<Props> = ({ open, onClose }) => {
   };
 
   if (!open) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  // Portal to document.body so the modal escapes any ancestor with transform,
+  // filter, backdrop-filter, etc. (those break position: fixed for descendants).
+  return createPortal(
     <div className="ops-share-overlay" role="dialog" aria-modal="true" aria-label={`Share ${appName}`} onClick={onClose}>
       <div className="ops-share-modal" onClick={(e) => e.stopPropagation()}>
         <button className="ops-share-close" aria-label="Close" onClick={onClose}>×</button>
@@ -84,7 +88,8 @@ const ShareAppModal: React.FC<Props> = ({ open, onClose }) => {
 
         <p className="ops-share-note">No data is shared — just the app link.</p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
