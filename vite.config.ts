@@ -19,23 +19,9 @@ export default defineConfig(() => ({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
-      includeAssets: ["favicon.ico", "favicon.svg", "robots.txt"],
-      manifest: {
-        name: "Content Flow",
-        short_name: "Content Flow",
-        description: "Lightweight local-first content planner & calendar",
-        theme_color: "#243958",
-        background_color: "#ffffff",
-        display: "standalone",
-        start_url: BASE,
-        scope: BASE,
-        icons: [
-          { src: "pwa-192.png", sizes: "192x192", type: "image/png" },
-          { src: "pwa-512.png", sizes: "512x512", type: "image/png" },
-          { src: "pwa-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
-        ],
-      },
+      manifest: false,
       workbox: {
+        navigateFallback: "index.html",
         navigateFallbackDenylist: [/^\/~oauth/, /^\/api/],
       },
     }),
