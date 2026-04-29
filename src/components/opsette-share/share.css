@@ -1,5 +1,12 @@
 /* Opsette Share — framework-free styles. Scoped via .ops-share-* prefixes. */
 
+/* The trigger's accent color, hover bg/border, and focus outline all read
+ * from --ops-header-accent (declared on .ops-header in
+ * _shared/opsette-header/header.css and overridden in dark scopes). When
+ * rendered inside the canonical header, the trigger flips to gold in dark
+ * mode automatically via variable cascade — no detection-based selectors.
+ * Outside the header (Wave 2 apps still rendering ShareAppButton standalone)
+ * the variable is undefined and the green fallbacks apply. */
 .ops-share-trigger {
   display: inline-flex;
   align-items: center;
@@ -7,17 +14,17 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 999px;
-  color: #2f4f46;
+  color: var(--ops-header-accent, #2f4f46);
   cursor: pointer;
   padding: 0;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .ops-share-trigger:hover {
-  background: rgba(47, 79, 70, 0.06);
-  border-color: rgba(47, 79, 70, 0.18);
+  background: var(--ops-header-accent-hover-bg, rgba(47, 79, 70, 0.06));
+  border-color: var(--ops-header-accent-hover-border, rgba(47, 79, 70, 0.18));
 }
 .ops-share-trigger:focus-visible {
-  outline: 2px solid #426f62;
+  outline: 2px solid var(--ops-header-accent, #426f62);
   outline-offset: 2px;
 }
 
