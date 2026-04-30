@@ -22,7 +22,7 @@ import AppHeader from "@/components/AppHeader";
 import AppBreadcrumb from "@/components/AppBreadcrumb";
 import AboutModal from "@/components/AboutModal";
 import PrivacyModal from "@/components/PrivacyModal";
-import { HeaderSlotsProvider, useHeaderCenter, useHeaderSlotNodes } from "@/layout/HeaderSlots";
+import { HeaderSlotsProvider, useHeaderSlotNodes } from "@/layout/HeaderSlots";
 
 const { Sider, Content, Footer } = Layout;
 const { useBreakpoint } = Grid;
@@ -35,12 +35,6 @@ const items = [
   { key: "/projects", icon: <AppstoreOutlined />, label: "Projects" },
   { key: "/settings", icon: <SettingOutlined />, label: "Settings" },
 ];
-
-function BreadcrumbCenterBinder() {
-  const breadcrumb = useMemo(() => <AppBreadcrumb />, []);
-  useHeaderCenter(breadcrumb);
-  return null;
-}
 
 export default function AppLayout() {
   const { settings, update } = useSettings();
@@ -137,33 +131,6 @@ export default function AppLayout() {
     </div>
   ) : null;
 
-  const siderHeader = (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: collapsed ? "center" : "flex-start",
-        gap: 10,
-        padding: collapsed ? "16px 0" : "16px",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-      }}
-    >
-      <img
-        src={`${import.meta.env.BASE_URL}favicon.svg`}
-        alt=""
-        width={20}
-        height={20}
-        style={{ display: "block", flexShrink: 0 }}
-      />
-      {!collapsed && (
-        <Typography.Text strong style={{ fontSize: 14 }}>
-          Content Flow
-        </Typography.Text>
-      )}
-    </div>
-  );
-
   const sidebarBody = (
     <>
       {menu}
@@ -189,7 +156,6 @@ export default function AppLayout() {
               zIndex: 10,
             }}
           >
-            {siderHeader}
             {sidebarBody}
           </Sider>
         )}
@@ -203,7 +169,9 @@ export default function AppLayout() {
           />
           <Content>
             <DataLossBanner />
-            <BreadcrumbCenterBinder />
+            <div style={{ padding: "16px 20px 0" }}>
+              <AppBreadcrumb />
+            </div>
             <Outlet />
             <Footer
               className="no-print"
@@ -297,6 +265,6 @@ interface HeaderWithSlotsProps {
 }
 
 function HeaderWithSlots(props: HeaderWithSlotsProps) {
-  const { centerNode, actionsNode } = useHeaderSlotNodes();
-  return <AppHeader {...props} headerCenter={centerNode} headerActions={actionsNode} />;
+  const { actionsNode } = useHeaderSlotNodes();
+  return <AppHeader {...props} headerActions={actionsNode} />;
 }
