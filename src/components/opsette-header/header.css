@@ -5,6 +5,24 @@
  * exact class names; only the surrounding shell differs. See HEADER_BAR.md.
  */
 
+/* Gilmer is the Opsette family display face. Bundled as woff2 next to this
+ * stylesheet; vite resolves the relative url() and emits hashed assets at
+ * build time. Only Medium and Bold ship — they're all the title needs. */
+@font-face {
+  font-family: 'Gilmer';
+  src: url('./fonts/gilmer-medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gilmer';
+  src: url('./fonts/gilmer-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* The header inherits surface tokens (--card / --card-foreground / --border)
  * from the host app, so a shadcn app that sets html.dark or bakes dark values
  * into :root automatically gets a dark header. AntD apps don't ship shadcn
@@ -56,36 +74,29 @@
   border-radius: 4px;
 }
 .ops-header-mark img {
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   display: block;
 }
 @media (max-width: 640px) {
-  .ops-header-mark img { width: 24px; height: 24px; }
+  .ops-header-mark img { width: 32px; height: 32px; }
 }
 
-/* Center: tool brand icon + name (the page H1) */
+/* Center: tool name (the page H1) */
 .ops-header-title {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
   flex: 1 1 auto;
   min-width: 0; /* allow truncation */
 }
-.ops-header-icon {
-  flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  color: var(--ops-header-accent);
-}
 .ops-header-name {
   margin: 0;
-  font-family: inherit;
+  font-family: 'Gilmer', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 22px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
-  line-height: 1;
-  color: inherit;
+  line-height: 1.25; /* room for Gilmer descenders (j/g/p/y) — clipped at 1.0 */
+  color: var(--ops-header-accent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -7,7 +7,7 @@ import "./header.css";
  * OpsetteHeader — the canonical unified header for every Opsette tool.
  *
  * Renders a sticky 60px three-region bar:
- *   [Opsette mark]  [tool icon + name]            [share + extras]
+ *   [Opsette mark]  [tool name]                   [share + extras]
  *
  * The component is framework-free in its rendered DOM (plain <header>, scoped
  * .ops-header-* classes) so it produces identical output in shadcn apps and
@@ -70,21 +70,12 @@ export const OpsetteHeader: React.FC<OpsetteHeaderProps> = ({
         <img
           src={`${base}opsette-logo.png`}
           alt="Opsette Tools"
-          width={28}
-          height={28}
+          width={40}
+          height={40}
         />
       </a>
 
       <div className="ops-header-title">
-        <svg
-          className="ops-header-icon"
-          viewBox="0 0 256 256"
-          width={24}
-          height={24}
-          aria-hidden="true"
-          focusable="false"
-          dangerouslySetInnerHTML={{ __html: opsetteHeaderConfig.brandIconPaths }}
-        />
         <h1 className="ops-header-name">{name}</h1>
       </div>
 
