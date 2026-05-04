@@ -120,6 +120,19 @@ body {
   min-height: 0 !important;
 }
 
+/* Sider collapse trigger — antd ships its own bg color that ignores theme
+   tokens. Force both modes to read from theme. */
+.ant-layout-sider-light .ant-layout-sider-trigger {
+  background: #fafafa;
+  color: rgba(0, 0, 0, 0.65);
+  border-top: 1px solid rgba(5, 5, 5, 0.06);
+}
+.ant-layout-sider-dark .ant-layout-sider-trigger {
+  background: #141414;
+  color: rgba(255, 255, 255, 0.65);
+  border-top: 1px solid rgba(253, 253, 253, 0.12);
+}
+
 .app-section {
   margin-bottom: 12px;
 }
