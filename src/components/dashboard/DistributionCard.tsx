@@ -4,9 +4,9 @@ import type { ContentItem, Medium } from "@/db/types";
 
 const PALETTE = [
   "colorPrimary",
-  "colorSuccess",
+  "colorLink",
   "colorWarning",
-  "colorInfo",
+  "colorSuccess",
   "colorError",
 ] as const;
 

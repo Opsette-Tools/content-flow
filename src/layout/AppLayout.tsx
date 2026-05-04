@@ -19,7 +19,6 @@ import MediumIcon from "@/components/MediumIcon";
 import ShortcutsHelpModal from "@/components/ShortcutsHelpModal";
 import { isItemDirty } from "@/lib/dirty";
 import AppHeader from "@/components/AppHeader";
-import AppBreadcrumb from "@/components/AppBreadcrumb";
 import AboutModal from "@/components/AboutModal";
 import PrivacyModal from "@/components/PrivacyModal";
 import { HeaderSlotsProvider, useHeaderSlotNodes } from "@/layout/HeaderSlots";
@@ -141,37 +140,38 @@ export default function AppLayout() {
   return (
     <HeaderSlotsProvider>
       <Layout style={{ minHeight: "100vh" }}>
-        {!isMobile && (
-          <Sider
-            collapsible
-            collapsed={collapsed}
-            onCollapse={setCollapsed}
-            width={220}
-            breakpoint="lg"
-            theme={dark ? "dark" : "light"}
-            style={{
-              boxShadow: dark
-                ? "2px 0 8px rgba(0, 0, 0, 0.35)"
-                : "2px 0 8px rgba(15, 23, 42, 0.08)",
-              zIndex: 10,
-            }}
-          >
-            {sidebarBody}
-          </Sider>
-        )}
-        <Layout>
-          <HeaderWithSlots
-            isDark={dark}
-            onToggleDark={(v) => update({ theme: v ? "dark" : "light" })}
-            onOpenPalette={() => openPalette("navigation")}
-            onOpenMobileDrawer={() => setDrawerOpen(true)}
-            isMobile={isMobile}
-          />
+        <HeaderWithSlots
+          isDark={dark}
+          onToggleDark={(v) => update({ theme: v ? "dark" : "light" })}
+          onOpenPalette={() => openPalette("navigation")}
+          onOpenMobileDrawer={() => setDrawerOpen(true)}
+          isMobile={isMobile}
+        />
+        <Layout style={{ background: "transparent" }}>
+          {!isMobile && (
+            <Sider
+              collapsible
+              collapsed={collapsed}
+              onCollapse={setCollapsed}
+              width={220}
+              breakpoint="lg"
+              theme={dark ? "dark" : "light"}
+              style={{
+                boxShadow: dark
+                  ? "2px 0 8px rgba(0, 0, 0, 0.35)"
+                  : "2px 0 8px rgba(15, 23, 42, 0.08)",
+                zIndex: 10,
+                position: "sticky",
+                top: 60,
+                height: "calc(100vh - 60px)",
+                overflow: "auto",
+              }}
+            >
+              {sidebarBody}
+            </Sider>
+          )}
           <Content>
             <DataLossBanner />
-            <div style={{ padding: "16px 20px 0" }}>
-              <AppBreadcrumb />
-            </div>
             <Outlet />
             <Footer
               className="no-print"

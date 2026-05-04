@@ -53,7 +53,7 @@ export default function Projects() {
   );
 
   return (
-    <div className="app-page">
+    <div className="app-page app-page--wide">
       {projects.length ? (
         <Row gutter={[12, 12]}>
           {projects.map((p) => (

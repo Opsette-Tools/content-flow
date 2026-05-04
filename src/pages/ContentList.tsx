@@ -470,7 +470,7 @@ export default function ContentList() {
   );
 
   return (
-    <div className="app-page">
+    <div className="app-page app-page--wide">
       {filtersBar}
       <Card size="small">
         {filtered.length ? (isMobile ? mobileList : desktopTable) : <Empty description="No content matches filters" />}

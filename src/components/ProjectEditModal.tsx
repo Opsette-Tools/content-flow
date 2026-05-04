@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import {
+  ColorPicker as AntColorPicker,
   Form,
   Input,
   InputNumber,
@@ -8,6 +9,7 @@ import {
   Space,
   message,
 } from "antd";
+import type { Color } from "antd/es/color-picker";
 import { projectsRepo } from "@/db";
 import { PROJECT_COLORS, type Project } from "@/db/types";
 
@@ -106,24 +108,16 @@ export default function ProjectEditModal({ open, editing, onClose, onSaved }: Pr
 }
 
 function ColorPicker({ value, onChange }: { value?: string; onChange?: (v: string) => void }) {
+  const handleChange = (_: Color, hex: string) => onChange?.(hex);
   return (
-    <Space wrap>
-      {PROJECT_COLORS.map((c) => (
-        <button
-          key={c}
-          type="button"
-          onClick={() => onChange?.(c)}
-          aria-label={c}
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 6,
-            background: c,
-            border: value === c ? "3px solid #000" : "2px solid transparent",
-            cursor: "pointer",
-          }}
-        />
-      ))}
+    <Space size={12} align="center">
+      <AntColorPicker
+        value={value}
+        onChange={handleChange}
+        presets={[{ label: "Suggested", colors: [...PROJECT_COLORS] }]}
+        showText
+        disabledAlpha
+      />
     </Space>
   );
 }

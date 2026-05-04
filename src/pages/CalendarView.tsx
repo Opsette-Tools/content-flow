@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Badge, Button, Calendar, Card, Drawer, Empty, Grid, List, Space, Tag, Typography, message } from "antd";
+import { Badge, Button, Calendar, Card, Drawer, Empty, Grid, List, Space, Tag, Typography, message, theme } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
@@ -85,6 +85,7 @@ export default function CalendarView() {
   const { tags } = useTags();
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const { token } = theme.useToken();
 
   const projMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
@@ -115,7 +116,7 @@ export default function CalendarView() {
     if (isMobile) {
       // Mobile: badge-count only, no drag, no droppable wrapper
       if (!list.length) return null;
-      return <Badge count={list.length} style={{ backgroundColor: "#1677ff" }} />;
+      return <Badge count={list.length} style={{ backgroundColor: token.colorPrimary }} />;
     }
 
     // Desktop: every cell is a droppable, even empty ones
@@ -186,9 +187,9 @@ export default function CalendarView() {
   const dayItems = selectedDate ? itemsByDate.get(selectedDate.format("YYYY-MM-DD")) ?? [] : [];
 
   return (
-    <div className="app-page">
+    <div className={`app-page ${!isMobile ? "app-page--full" : ""}`}>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <Card>
+        <Card className={!isMobile ? "cf-calendar-fill" : undefined}>
           <Calendar
             fullscreen={!isMobile}
             cellRender={(value, info) => (info.type === "date" ? dateCellRender(value) : null)}
@@ -205,8 +206,13 @@ export default function CalendarView() {
         width={isMobile ? "100%" : 420}
         height={isMobile ? "70%" : undefined}
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => { setDayDrawerOpen(false); openEditor(null); }}>
-            Add for this date
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => { setDayDrawerOpen(false); openEditor(null); }}
+            aria-label="Add for this date"
+          >
+            Add
           </Button>
         }
       >

@@ -8,9 +8,10 @@ const DAYS = 7;
 
 interface Props {
   items: ContentItem[];
+  showAxisLabels?: boolean;
 }
 
-export default function PublishingHeatmap({ items }: Props) {
+export default function PublishingHeatmap({ items, showAxisLabels = false }: Props) {
   const { token } = theme.useToken();
 
   const { grid, max } = useMemo(() => {
@@ -69,7 +70,27 @@ export default function PublishingHeatmap({ items }: Props) {
         </Typography.Text>
       }
     >
-      <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+      <div style={{ overflowX: "auto", paddingBottom: 4, display: "flex", gap: 8 }}>
+        {showAxisLabels && (
+          <div
+            aria-hidden
+            style={{
+              display: "grid",
+              gridTemplateRows: `repeat(${DAYS}, 14px)`,
+              gap: 3,
+              fontSize: 10,
+              color: token.colorTextTertiary,
+              textAlign: "right",
+              minWidth: 18,
+            }}
+          >
+            {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+              <span key={i} style={{ lineHeight: "14px" }}>
+                {i % 2 === 1 ? d : ""}
+              </span>
+            ))}
+          </div>
+        )}
         <div
           style={{
             display: "grid",

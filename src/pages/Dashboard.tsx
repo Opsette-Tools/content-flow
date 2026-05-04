@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Button, Card, Col, Grid, List, Row, Space, Tag, Tooltip, Typography } from "antd";
+import { Button, Card, Col, Grid, List, Row, Space, Tag, Tooltip, Typography, theme } from "antd";
 import { ExportOutlined, PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useContent } from "@/hooks/useContent";
@@ -9,7 +9,6 @@ import StatusTag from "@/components/StatusTag";
 import ProjectTag from "@/components/ProjectTag";
 import ContentEditorDrawer from "@/components/ContentEditorDrawer";
 import PublishingHeatmap from "@/components/dashboard/PublishingHeatmap";
-import CadenceListCard from "@/components/dashboard/CadenceListCard";
 import DistributionCard from "@/components/dashboard/DistributionCard";
 import GapStrip from "@/components/dashboard/GapStrip";
 import StatCard, { type StatTone } from "@/components/StatCard";
@@ -23,6 +22,7 @@ export default function Dashboard() {
   const { tags, refresh: refreshTags } = useTags();
   const screens = useBreakpoint();
   const isCompact = !screens.md;
+  const { token } = theme.useToken();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -46,12 +46,6 @@ export default function Dashboard() {
   const overdue = items
     .filter((i) => i.publishDate && dayjs(i.publishDate).isBefore(today) && i.status !== "Published" && i.status !== "Archived")
     .sort((a, b) => (a.publishDate! < b.publishDate! ? -1 : 1));
-
-  const unscheduled = items.filter((i) => !i.publishDate && i.status !== "Published" && i.status !== "Archived");
-
-  const recent = items.slice(0, 6);
-
-  const projectsWithCadence = projects.filter((p) => p.cadenceTarget);
 
   const open = (id: string | null) => {
     setEditId(id);
@@ -128,36 +122,52 @@ export default function Dashboard() {
         <div className="stat-carousel app-section">
           {statEntries.map((s) => (
             <div key={s.label} className="stat-carousel-item">
-              <StatCard label={s.label} value={s.value} tone={s.tone} />
+              <StatCard label={s.label} value={s.value} tone={s.tone} variant="card" />
             </div>
           ))}
         </div>
       ) : (
-        <Row gutter={[12, 12]} className="app-section">
+        <div
+          className="app-section"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            padding: "12px 20px",
+            borderRadius: 10,
+            background: token.colorFillTertiary,
+            boxShadow: `inset 0 1px 3px ${token.colorFill}, inset 0 -1px 0 ${token.colorBorderSecondary}`,
+            overflowX: "auto",
+          }}
+        >
           {statEntries.map((s, idx) => (
-            <Col xs={12} sm={8} md={idx === 0 ? 4 : 5} key={s.label}>
-              <StatCard label={s.label} value={s.value} tone={s.tone} />
-            </Col>
+            <div key={s.label} style={{ display: "flex", alignItems: "center" }}>
+              {idx > 0 && (
+                <span
+                  aria-hidden
+                  style={{
+                    width: 1,
+                    height: 18,
+                    background: token.colorBorderSecondary,
+                    margin: "0 12px",
+                  }}
+                />
+              )}
+              <StatCard label={s.label} value={s.value} tone={s.tone} variant="inline" />
+            </div>
           ))}
-        </Row>
+        </div>
       )}
 
       <GapStrip items={items} projects={projects} />
 
       <Row gutter={[16, 16]} className="app-section">
-        {projectsWithCadence.length > 0 && (
-          <Col xs={24} md={12}>
-            <CadenceListCard projects={projectsWithCadence} items={items} />
-          </Col>
-        )}
-        <Col xs={24} md={projectsWithCadence.length > 0 ? 12 : 24}>
-          <DistributionCard items={items} />
-        </Col>
-      </Row>
-
-      <Row gutter={[16, 16]} className="app-section">
-        <Col xs={24}>
+        <Col xs={24} md={16}>
           <PublishingHeatmap items={items} />
+        </Col>
+        <Col xs={24} md={8}>
+          <DistributionCard items={items} />
         </Col>
       </Row>
 
@@ -167,7 +177,7 @@ export default function Dashboard() {
             title="Upcoming this week"
             size="small"
             style={{ height: "100%" }}
-            styles={{ body: { minHeight: 220 } }}
+            styles={{ body: { minHeight: 180 } }}
           >
             {upcoming.length ? (
               <List dataSource={upcoming} renderItem={(i) => renderItem(i)} />
@@ -181,40 +191,12 @@ export default function Dashboard() {
             title={<span>Overdue {overdue.length > 0 && <Tag color="red">{overdue.length}</Tag>}</span>}
             size="small"
             style={{ height: "100%" }}
-            styles={{ body: { minHeight: 220 } }}
+            styles={{ body: { minHeight: 180 } }}
           >
             {overdue.length ? (
               <List dataSource={overdue} renderItem={(i) => renderItem(i, true)} />
             ) : (
               <Typography.Text type="secondary">Nothing overdue</Typography.Text>
-            )}
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card
-            title="Unscheduled ideas"
-            size="small"
-            style={{ height: "100%" }}
-            styles={{ body: { minHeight: 220 } }}
-          >
-            {unscheduled.length ? (
-              <List dataSource={unscheduled} renderItem={(i) => renderItem(i)} />
-            ) : (
-              <Typography.Text type="secondary">No unscheduled items</Typography.Text>
-            )}
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card
-            title="Recently updated"
-            size="small"
-            style={{ height: "100%" }}
-            styles={{ body: { minHeight: 220 } }}
-          >
-            {recent.length ? (
-              <List dataSource={recent} renderItem={(i) => renderItem(i)} />
-            ) : (
-              <Typography.Text type="secondary">No content yet</Typography.Text>
             )}
           </Card>
         </Col>

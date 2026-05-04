@@ -46,8 +46,78 @@ body {
 
 @media (min-width: 768px) {
   .app-page {
-    padding: 24px;
+    padding: 16px;
   }
+}
+
+/* Wide page variant — Content and Projects use the full content-area width
+   (capped only by an outer guard so very wide monitors don't stretch tables
+   into unreadable single rows). Dashboard, Inbox, Settings stay centered. */
+.app-page--wide {
+  max-width: none;
+}
+
+@media (min-width: 768px) {
+  .app-page--wide {
+    padding: 16px 20px;
+  }
+}
+
+/* Full-bleed page variant (e.g. Calendar) — drops max-width + tightens padding
+   so the content fills the viewport horizontally. Highest specificity so it
+   wins over any other modifier on the same element. */
+.app-page.app-page--full {
+  max-width: none;
+  padding: 8px 12px;
+}
+
+@media (min-width: 768px) {
+  .app-page.app-page--full {
+    padding: 12px 16px;
+  }
+}
+
+/* Calendar fills the available viewport height so the month grid never forces
+   a page-level scroll. Header is 60px; we subtract the page padding too. */
+.cf-calendar-fill {
+  height: calc(100vh - 60px - 24px);
+  display: flex;
+  flex-direction: column;
+}
+.cf-calendar-fill .ant-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  min-height: 0;
+}
+.cf-calendar-fill .ant-picker-calendar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.cf-calendar-fill .ant-picker-calendar .ant-picker-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.cf-calendar-fill .ant-picker-calendar .ant-picker-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+}
+.cf-calendar-fill .ant-picker-calendar .ant-picker-content {
+  flex: 1;
+  height: 100%;
+  table-layout: fixed;
+}
+.cf-calendar-fill .ant-picker-calendar-date {
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 .app-section {
@@ -92,7 +162,7 @@ body {
 
 /* Calendar drag-and-drop */
 .calendar-day-droppable--over {
-  background: rgba(22, 119, 255, 0.08);
+  background: color-mix(in srgb, var(--ant-color-primary) 10%, transparent);
   border-radius: 4px;
 }
 
@@ -175,8 +245,8 @@ body {
   transition: background 120ms ease, border-color 120ms ease, opacity 120ms ease;
 }
 .cf-checklist-row:hover {
-  border-color: rgba(22, 119, 255, 0.35);
-  background: rgba(22, 119, 255, 0.04);
+  border-color: color-mix(in srgb, var(--ant-color-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--ant-color-primary) 6%, transparent);
 }
 .cf-checklist-row.is-checked {
   background: rgba(15, 23, 42, 0.04);
@@ -205,5 +275,5 @@ body {
 }
 .cf-drawer-resize-handle:hover,
 .cf-drawer-resize-handle:active {
-  background: rgba(22, 119, 255, 0.18);
+  background: color-mix(in srgb, var(--ant-color-primary) 22%, transparent);
 }

@@ -1,7 +1,12 @@
 import { theme as antdTheme, type ThemeConfig } from "antd";
 
 const sharedToken = {
-  colorPrimary: "#1677ff",
+  colorPrimary: "#3F4A5B",
+  colorInfo: "#3F4A5B",
+  colorSuccess: "#5C7A5A",
+  colorLink: "#B86E3C",
+  colorLinkHover: "#C8814E",
+  colorLinkActive: "#9A5A2F",
   borderRadius: 8,
   fontFamily:
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
@@ -14,16 +19,19 @@ export const lightTheme: ThemeConfig = {
   algorithm: antdTheme.defaultAlgorithm,
   token: {
     ...sharedToken,
-    colorBgLayout: "#f5f5f5",
+    colorBgLayout: "#ffffff",
   },
   components: {
     Layout: {
       headerBg: "#ffffff",
       siderBg: "#ffffff",
-      bodyBg: "#f5f5f5",
+      bodyBg: "#ffffff",
     },
     Menu: {
       itemBg: "transparent",
+      itemSelectedBg: "rgba(63, 74, 91, 0.12)",
+      itemSelectedColor: "#3F4A5B",
+      itemActiveBg: "rgba(63, 74, 91, 0.06)",
     },
   },
 };
@@ -39,6 +47,12 @@ export const darkTheme: ThemeConfig = {
       headerBg: "#141414",
       siderBg: "#141414",
       bodyBg: "#000000",
+    },
+    Menu: {
+      darkItemBg: "transparent",
+      darkItemSelectedBg: "rgba(184, 110, 60, 0.18)",
+      darkItemSelectedColor: "#E0A878",
+      darkItemHoverBg: "rgba(184, 110, 60, 0.08)",
     },
   },
 };
